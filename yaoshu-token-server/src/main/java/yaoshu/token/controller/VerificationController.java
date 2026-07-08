@@ -11,6 +11,7 @@ import yaoshu.token.middleware.SecureVerificationFilter;
 import yaoshu.token.pojo.entity.PasskeyCredential;
 import yaoshu.token.pojo.entity.TwoFa;
 import yaoshu.token.pojo.ipo.VerificationIPO;
+import yaoshu.token.constant.CommonConstants;
 import yaoshu.token.service.EmailService;
 import yaoshu.token.service.TotpService;
 import yaoshu.token.service.TwoFaBackupCodeHelper;
@@ -57,11 +58,9 @@ public class VerificationController {
         String code = VerificationService.generateVerificationCode(6);
         VerificationService.registerCode(email, code, VerificationService.EMAIL_VERIFICATION_PURPOSE);
 
-        // 发送邮件
-        String subject = "验证码 - " + email;
-        String content = "<p>您的验证码是：<strong>" + code
-                + "</strong></p><p>验证码有效期 " + VerificationService.verificationValidMinutes
-                + " 分钟，请勿泄露给他人。</p>";
+        // 发送邮件（品牌化模板，标题不含收件人邮箱避免隐私泄露）
+        String subject = "【" + CommonConstants.systemName + "】验证码";
+        String content = EmailService.buildVerificationCodeEmail(code, VerificationService.verificationValidMinutes);
         boolean sent = EmailService.sendEmail(subject, email, content);
 
         if (!sent) {
@@ -94,12 +93,10 @@ public class VerificationController {
         String token = VerificationService.generateVerificationCode(6);
         VerificationService.registerCode(email, token, VerificationService.PASSWORD_RESET_PURPOSE);
 
-        // 发送重置邮件
-        String subject = "密码重置";
-        String content = "<p>您好，" + user.getUsername() + "</p>"
-                + "<p>您的密码重置验证码是：<strong>" + token + "</strong></p>"
-                + "<p>验证码有效期 " + VerificationService.verificationValidMinutes + " 分钟。</p>"
-                + "<p>如果这不是您本人的操作，请忽略此邮件。</p>";
+        // 发送重置邮件（品牌化模板）
+        String subject = "【" + CommonConstants.systemName + "】密码重置验证码";
+        String content = EmailService.buildPasswordResetEmail(user.getUsername(), token,
+                VerificationService.verificationValidMinutes);
         EmailService.sendEmail(subject, email, content);
 
         return R.success();

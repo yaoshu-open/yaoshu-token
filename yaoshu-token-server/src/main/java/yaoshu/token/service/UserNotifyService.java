@@ -192,7 +192,7 @@ public class UserNotifyService {
      * 发送邮件通知      */
     private void sendEmailNotify(String email, NotifyDto notify) {
         String content = processPlaceholders(notify.getContent(), notify.getValues());
-        EmailService.sendEmail(notify.getTitle(), email, content);
+        EmailService.sendEmail(notify.getTitle(), email, EmailService.buildNotificationEmail(content));
     }
 
     /**

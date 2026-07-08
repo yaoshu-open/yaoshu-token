@@ -285,12 +285,18 @@ public class OptionService {
      */
     private void syncCommonConstants() {
         try {
-            String retryTimesStr = yaoshu.token.constant.CommonConstants.optionMap.get("RetryTimes");
+            Map<String, String> map = yaoshu.token.constant.CommonConstants.optionMap;
+            String retryTimesStr = map.get("RetryTimes");
             if (retryTimesStr != null && !retryTimesStr.isEmpty()) {
                 yaoshu.token.constant.CommonConstants.retryTimes = Integer.parseInt(retryTimesStr);
             }
+            // 同步 SystemName（EmailService 发件人名称、TotpService 等多处使用）
+            String systemName = map.get("SystemName");
+            if (systemName != null && !systemName.isEmpty()) {
+                yaoshu.token.constant.CommonConstants.systemName = systemName;
+            }
         } catch (Exception e) {
-            log.warn("同步 CommonConstants.retryTimes 失败: {}", e.getMessage());
+            log.warn("同步 CommonConstants 失败: {}", e.getMessage());
         }
     }
 
@@ -383,8 +389,8 @@ public class OptionService {
             syncPasskeySetting();
         }
 
-        // 同步 CommonConstants（RetryTimes 等）
-        if ("RetryTimes".equals(key)) {
+        // 同步 CommonConstants（RetryTimes/SystemName 等）
+        if ("RetryTimes".equals(key) || "SystemName".equals(key)) {
             syncCommonConstants();
         }
 
