@@ -1,0 +1,19 @@
+// 圆角 scale
+// 设计见 设计_DesignToken与样式重构.md §2.4
+
+$radius-sm: 4px;     // 标签/徽章
+$radius-base: 6px;  // 按钮/输入框（对齐 EP --el-border-radius-base）
+$radius-md: 8px;    // 卡片/下拉菜单
+$radius-lg: 12px;   // 弹窗/大卡片
+$radius-xl: 16px;   // 特殊大容器
+$radius-full: 9999px; // 圆形/胶囊
+
+// CSS 变量映射（供 Vue 组件 style 块直接使用，无需 @use）
+:root {
+  --ys-radius-sm: #{$radius-sm};
+  --ys-radius-base: #{$radius-base};
+  --ys-radius-md: #{$radius-md};
+  --ys-radius-lg: #{$radius-lg};
+  --ys-radius-xl: #{$radius-xl};
+  --ys-radius-full: #{$radius-full};
+}

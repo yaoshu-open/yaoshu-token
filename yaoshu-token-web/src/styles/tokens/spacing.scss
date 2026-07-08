@@ -1,0 +1,25 @@
+// 间距 scale：4 的倍数体系
+// 设计见 设计_DesignToken与样式重构.md §2.3
+
+$spacing-1: 4px;   // 紧凑间距（标签内图标与文字）
+$spacing-2: 8px;   // 元素内间距（按钮内 padding）
+$spacing-3: 12px;  // 表单项间距
+$spacing-4: 16px; // 卡片内 padding / 区块间距
+$spacing-5: 20px; // 卡片内 padding（宽松）
+$spacing-6: 24px; // 区块间距 / dashboard gap
+$spacing-8: 32px; // 大区块间距
+$spacing-10: 40px; // 页面级间距
+$spacing-12: 48px; // 页面顶部间距
+
+// CSS 变量映射（供 Vue 组件 style 块直接使用，无需 @use）
+:root {
+  --ys-spacing-1: #{$spacing-1};
+  --ys-spacing-2: #{$spacing-2};
+  --ys-spacing-3: #{$spacing-3};
+  --ys-spacing-4: #{$spacing-4};
+  --ys-spacing-5: #{$spacing-5};
+  --ys-spacing-6: #{$spacing-6};
+  --ys-spacing-8: #{$spacing-8};
+  --ys-spacing-10: #{$spacing-10};
+  --ys-spacing-12: #{$spacing-12};
+}

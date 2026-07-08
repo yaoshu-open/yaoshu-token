@@ -1,0 +1,28 @@
+# 集成测试专用增量配置。
+# 此文件名为 application-test.yml，通过 @ActiveProfiles("test") 激活，作为 main application.yml 的增量覆盖。
+# 绝对禁止在此文件中重复声明 main 已有的配置段（server/spring/yue/sa-token 等），
+# 否则会在测试时整体覆盖 main 配置（Spring Boot classpath 同名文件"第一个找到的胜出"陷阱）。
+# 本文件只放测试环境与 dev 环境的差异项。
+spring:
+  flyway:
+    # 测试环境禁用 Flyway —— 表已存在于 dev 数据库，无需重复迁移
+    enabled: false
+  ai:
+    openai:
+      api-key: test-dummy-key-for-integration-test
+
+# JetCache 本地缓存（测试环境，供 @Cached/@CacheInvalidate 注解使用）
+jetcache:
+  local:
+    default:
+      type: linkedhashmap
+      limit: 100
+
+yue:
+  web:
+    # 测试场景关闭 JVM 空闲 GC 优化（避免频繁 GC 拖慢测试）
+    enable-jvm-idle-optimization: false
+    # 测试环境不启用全局 QPS 限制
+    enable-global-api-qps-limit: false
+    # 允许重复读取请求体（DistributorFilter + RelayController 双消费 body）
+    enable-repeatedly-read-servlet-request: true

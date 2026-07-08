@@ -1,0 +1,73 @@
+// 颜色语义层：映射 Element Plus CSS 变量（开源版通用，无品牌色定制）
+// 商业版品牌色通过 yaoshu-token-ee-web/src/styles/ee-tokens.scss 覆盖
+// 设计见 设计_DesignToken与样式重构.md §2.2
+
+:root {
+  // 品牌主色：开源版使用 EP 默认蓝（非品牌资产）
+  // 商业版通过覆盖层注入爻枢品牌蓝 #177BFF
+  --ys-color-primary: #409eff;
+  --ys-color-primary-hover: #337ecc;
+  --ys-color-primary-active: #2a6db5;
+
+  // 辅助色（通用紫，商业版 ee-tokens 覆盖为爻枢紫 #7E00FE）
+  --ys-color-secondary: #8b5cf6;
+  --ys-color-secondary-hover: #7c3aed;
+  --ys-color-secondary-light: #a78bfa;
+
+  // 品牌渐变（通用蓝紫，商业版 ee-tokens 覆盖为爻枢双色 #177BFF→#7E00FE）
+  --ys-gradient-brand: linear-gradient(135deg, #409eff 0%, #8b5cf6 100%);
+
+  // 语义色：映射 EP
+  --ys-color-success: var(--el-color-success);
+  --ys-color-warning: var(--el-color-warning);
+  --ys-color-danger: var(--el-color-danger);
+  --ys-color-info: var(--el-color-info);
+
+  // 背景层
+  --ys-bg-base: var(--el-bg-color);
+  --ys-bg-page: var(--el-bg-color-page);
+  --ys-bg-overlay: var(--el-bg-color-overlay);
+  --ys-bg-brand-soft: var(--el-color-primary-light-9);
+
+  // 文字层
+  --ys-text-primary: var(--el-text-color-primary);
+  --ys-text-regular: var(--el-text-color-regular);
+  --ys-text-secondary: var(--el-text-color-secondary);
+  --ys-text-placeholder: var(--el-text-color-placeholder);
+  --ys-text-disabled: var(--el-text-color-disabled);
+
+  // 边框层
+  --ys-border-base: var(--el-border-color);
+  --ys-border-light: var(--el-border-color-light);
+  --ys-border-lighter: var(--el-border-color-lighter);
+  --ys-border-extra-light: var(--el-border-color-extra-light);
+
+  // 图表色板（通用色，非品牌双色）
+  // 商业版覆盖层注入品牌双色 #177BFF + #7E00FE
+  --ys-chart-1: #409eff;
+  --ys-chart-2: #8b5cf6;
+  --ys-chart-3: #ec4899;
+  --ys-chart-4: #f59e0b;
+  --ys-chart-5: #10b981;
+}
+
+// 暗色覆盖
+html.dark {
+  --ys-color-primary: #409eff;
+  --ys-color-primary-hover: #66b1ff;
+  --ys-color-primary-active: #337ecc;
+
+  // 辅助色/渐变/浅蓝背景暗色微调（对齐商业版 ee-tokens 暗色策略）
+  --ys-color-secondary: #a78bfa;
+  --ys-color-secondary-hover: #8b5cf6;
+  --ys-color-secondary-light: #c4b5fd;
+  --ys-gradient-brand: linear-gradient(135deg, #66b1ff 0%, #a78bfa 100%);
+  --ys-bg-brand-soft: var(--el-fill-color-dark);
+
+  // 图表色板暗色微调
+  --ys-chart-1: #409eff;
+  --ys-chart-2: #a78bfa;
+  --ys-chart-3: #f472b6;
+  --ys-chart-4: #fbbf24;
+  --ys-chart-5: #34d399;
+}

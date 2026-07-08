@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.iml
+
+# Documentation (not needed in image)
+*.md
+docs/
+
+# Frontend (separate deployment)
+node_modules/
+
+# Build artifacts
+target/
+*.log
+
+# Environment (never in image)
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db

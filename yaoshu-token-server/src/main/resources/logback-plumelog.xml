@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="false">
+    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
+    <conversionRule conversionWord="wex" converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
+    <conversionRule conversionWord="wEx" converterClass="org.springframework.boot.logging.logback.ExtendedWhitespaceThrowableProxyConverter"/>
+
+    <!-- 环境变量定义 -->
+    <springProperty scope="context" name="plumelog.redisHost" source="plumelog.redisHost"/>
+    <springProperty scope="context" name="plumelog.redisPort" source="plumelog.redisPort"/>
+    <springProperty scope="context" name="plumelog.redisAuth" source="plumelog.redisAuth"/>
+    <springProperty scope="context" name="plumelog.redisDb" source="plumelog.redisDb"/>
+    <springProperty scope="context" name="plumelog.env" source="plumelog.env"/>
+    <springProperty scope="context" name="plumelog.port"  source="server.port"/>
+    <springProperty scope="context" name="plumelog.appName" source="spring.application.name"/>
+
+    <!-- 彩色日志格式 -->
+    <property name="CONSOLE_LOG_PATTERN"
+              value="${CONSOLE_LOG_PATTERN:-%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr([%X{traceId}]){magenta} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}}"/>
+    <!--              value="${CONSOLE_LOG_PATTERN:-%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}) [%thread] %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(-&#45;&#45;){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}}"/>-->
+    <!-- 文件-文本日志格式 -->
+    <!--    <property name="FILE_LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} ${LOG_LEVEL_PATTERN:-%5p} ${PID:- } -&#45;&#45; [%15.15t] %-40.40logger{39} : %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>-->
+
+    <!-- 输出到控制台 -->
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- 过滤trace日志到控制台 -->
+<!--        <filter class="com.plumelog.logback.util.FilterSyncLogger">-->
+<!--            <level>info</level>-->
+<!--            <filterPackage>com.plumelog.trace.aspect.AbstractAspect</filterPackage>-->
+<!--        </filter>-->
+        <filter class="com.plumelog.logback.util.FilterSyncLogger">
+            <level></level>
+        </filter>
+        <encoder>
+            <Pattern>${CONSOLE_LOG_PATTERN}</Pattern>
+            <!-- 设置字符集 -->
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 输出到文件 -->
+    <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- 日志文件分区，避免单日志文件过大 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 日志文件名格式 -->
+            <fileNamePattern>logs/${plumelog.appName}-${plumelog.port}-info-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- 单日志文件最大值 -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- 日志保存最大天数 -->
+            <maxHistory>3</maxHistory>
+        </rollingPolicy>
+        <!-- 日志文档输出格式 -->
+        <encoder>
+            <Pattern>${CONSOLE_LOG_PATTERN}</Pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="file_error" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- 错误日志文件过滤-只打印错误日志 -->
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <!-- 日志文件分区，避免单日志文件过大 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 日志文件名格式 -->
+            <fileNamePattern>logs/${plumelog.appName}-${plumelog.port}-error-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- 单日志文件最大值 -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- 日志保存最大天数 -->
+            <maxHistory>3</maxHistory>
+        </rollingPolicy>
+        <!-- 日志文档输出格式 -->
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 输出plumelog -->
+    <appender name="plumelog" class="com.plumelog.logback.appender.RedisAppender">
+        <redisHost>${plumelog.redisHost}</redisHost>
+        <redisPort>${plumelog.redisPort}</redisPort>
+        <redisAuth>${plumelog.redisAuth}</redisAuth>
+        <redisDb>${plumelog.redisDb}</redisDb>
+        <appName>${plumelog.appName}</appName>
+        <env>${plumelog.env}</env>
+        <threadPoolSize>2</threadPoolSize>
+        <maxCount>500</maxCount>
+        <logQueueSize>50000</logQueueSize>
+    </appender>
+
+    <!-- 配置日志输出，只输出info，只保留控制台和plumelog输出 -->
+    <!-- 正常开发环境本地，只输出到控制台，测试环境只输出到plumelog,生产环境输出到本地文件plumelog,因为有plumelog加持本地文件就保留3天即可 -->
+    <!-- 这些都可以根据环境配置不同加载不同的ref -->
+    <root level="info">
+        <!-- 输出到控制台 -->
+        <appender-ref ref="console"/>
+        <!-- 输出到文件 -->
+<!--        <appender-ref ref="file"/>-->
+<!--        <appender-ref ref="file_error"/>-->
+        <!-- 输出plumelog -->
+<!--        <appender-ref ref="plumelog"/>-->
+    </root>
+</configuration>

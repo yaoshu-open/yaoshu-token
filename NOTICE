@@ -1,0 +1,30 @@
+Yaoshu Token NOTICE
+
+This project is inspired by new-api (https://github.com/Calcium-Ion/new-api) and
+has been completely reimplemented in Java + Vue3 based on its feature design and
+API contract.
+
+Copyright (c) Yaoshu Token Community
+
+---- Third-Party Notices ----
+
+This product includes or is inspired by the following third-party open source
+software:
+
+  * new-api (https://github.com/Calcium-Ion/new-api) — feature design and API
+    contract inspiration
+
+  * yue-library (https://yue.library.dev) — Java library framework
+
+  * Spring Boot, Spring AI, Spring Framework — developed by the Apache Software
+    Foundation (https://www.apache.org/)
+
+  * MyBatis-Plus (https://baomidou.com/) — ORM persistence layer
+
+Dependencies are managed via Maven (Java) and npm (frontend).
+Run `mvn dependency:tree` for Java or check `package.json` for frontend to get
+a complete and up-to-date dependency inventory.
+
+---- License ----
+
+Licensed under the Apache License, Version 2.0. See LICENSE for the full text.

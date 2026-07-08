@@ -1,0 +1,111 @@
+.zed
+.history
+upload
+*.exe
+*.db
+build
+*.db-journal
+logs
+node_modules
+dist
+/__debug_bin*
+tiktoken_cache
+.eslintcache
+.gocache
+.gomodcache/
+.cache
+plans
+.gomodcache/
+.gocache-temp
+.gopath
+.test
+token_estimator_test.go
+skills-lock.json
+.playwright-mcp
+
+# yue-library ignore
+application-dev-confidential.yml
+application-test-confidential.yml
+application-test-confidential-*.yml
+
+# project ignore
+*.pid
+ai-docs
+ai-docs/
+go-legacy/
+react-legacy
+node_modules
+yaoshu-docs
+
+# 环境变量（保留模板与无害的构建配置，其余忽略）
+.env
+.env.*
+!.env.example
+# 前端构建配置：仅含 VITE_APP_TITLE / VITE_API_BASE，无害且构建必需，开源用户开箱即用
+!yaoshu-token-web/.env.dev
+!yaoshu-token-web/.env.production
+
+# unplugin-auto-import 自动生成
+.eslintrc-auto-import.json
+auto-imports.d.ts
+components.d.ts
+
+# 本地开发临时文件
+.dev-pids.json
+
+# IDE ignore
+rebel.xml
+.trae
+.trae/
+.claude
+.cursor
+.qoder
+.openclaw
+.lingma
+.codebuddy
+AI协同矩阵
+AI协同矩阵/
+AI协同矩阵-设计时
+AI协同矩阵-设计时/
+.agents/skills
+
+# Eclipse and STS
+.project
+.classpath
+.settings/
+.sts4-cache/
+
+# idea ignore
+.idea/
+*.ipr
+*.iml
+*.iws
+
+# Maven
+target/
+.factorypath
+.flattened-pom.xml
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle
+.gradle/
+build/
+
+# temp ignore
+*.log
+*.cache
+*.diff
+*.patch
+*.tmp
+
+# system ignore
+.DS_Store
+Thumbs.db

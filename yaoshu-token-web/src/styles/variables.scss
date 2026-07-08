@@ -1,0 +1,12 @@
+// 主题色：开源版使用 EP 默认蓝 #409eff（非品牌资产）
+// 商业版通过 ee-tokens.scss 覆盖为爻枢品牌蓝 #177BFF
+$color-primary: var(--ys-color-primary);
+$color-success: var(--el-color-success);
+$color-warning: var(--el-color-warning);
+$color-danger: var(--el-color-danger);
+$color-info: var(--el-color-info);
+
+// 布局尺寸
+$header-height: 60px;
+$sider-width: 220px;
+$sider-collapsed-width: 64px;

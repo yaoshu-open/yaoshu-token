@@ -1,0 +1,178 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>ai.ylyue</groupId>
+        <artifactId>yue-library</artifactId>
+        <version>j17.3.3.1-SNAPSHOT</version>
+    </parent>
+    <groupId>yaoshu.token</groupId>
+    <artifactId>yaoshu-token-server</artifactId>
+    <name>${project.artifactId}</name>
+
+    <properties>
+        <!-- Spring AI -->
+        <spring-ai.version>1.1.7</spring-ai.version>
+        <spring-ai-alibaba.version>1.1.2.2</spring-ai-alibaba.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- spring-ai -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-agent-framework</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+                <version>${spring-ai-alibaba.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- yue-library -->
+        <dependency>
+            <groupId>ai.ylyue</groupId>
+            <artifactId>yue-library-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.ylyue</groupId>
+            <artifactId>yue-library-data-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.ylyue</groupId>
+            <artifactId>yue-library-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.ylyue</groupId>
+            <artifactId>yue-library-data-log</artifactId>
+        </dependency>
+
+        <!-- flyway -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.dtflys.forest</groupId>
+            <artifactId>forest-spring-boot3-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- Spring AI Alibaba Agent Framework -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-agent-framework</artifactId>
+        </dependency>
+
+        <!-- spring ai openai 模型 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+
+        <!-- jtokkit：OpenAI Token 分词 -->
+        <dependency>
+            <groupId>com.knuddels</groupId>
+            <artifactId>jtokkit</artifactId>
+            <version>1.1.0</version>
+        </dependency>
+
+        <!-- Yubico WebAuthn：Passkey 认证 -->
+        <dependency>
+            <groupId>com.yubico</groupId>
+            <artifactId>webauthn-server-core</artifactId>
+            <version>2.9.0</version>
+        </dependency>
+
+        <!-- Aviator：分层计费表达式引擎，对应 -->
+        <dependency>
+            <groupId>com.googlecode.aviator</groupId>
+            <artifactId>aviator</artifactId>
+            <version>5.4.3</version>
+        </dependency>
+
+        <!-- Stripe：官方 Java SDK -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>32.0.0</version>
+        </dependency>
+
+        <!-- Sa-Token：Web 登录鉴权（替代 HttpSession） -->
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-spring-boot3-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-redisson-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 开启 Spring Boot 分层打包特性 -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <layers>
+                        <enabled>true</enabled>
+                    </layers>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <!-- 可执行 fat jar 用 -exec 后缀，原始 jar 保留为普通可引用 jar -->
+                            <classifier>exec</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- 打包jar处理 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <!-- 剔除敏感信息配置文件 -->
+                    <excludes>
+                        <exclude>*confidential*.properties</exclude>
+                        <exclude>*confidential*.yml</exclude>
+                        <exclude>application-*.yml</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

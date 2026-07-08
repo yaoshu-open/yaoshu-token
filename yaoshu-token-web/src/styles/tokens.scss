@@ -1,0 +1,10 @@
+// Design Token 统一导出
+// 设计见 设计_DesignToken与样式重构.md §2.1
+// 用法：@use '@/styles/tokens' as *; 后即可使用 $spacing-* / $radius-* 等变量
+
+@forward './tokens/color';
+@forward './tokens/spacing';
+@forward './tokens/radius';
+@forward './tokens/shadow';
+@forward './tokens/typography';
+@forward './tokens/motion';

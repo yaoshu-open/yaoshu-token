@@ -1,0 +1,70 @@
+# Yaoshu Token — Docker Compose Configuration
+#
+# Quick Start:
+#   1. docker-compose up -d
+#   2. Access at http://localhost:9527
+#
+# ⚠️  IMPORTANT: Change all default passwords before deploying to production!
+
+version: '3.8'
+
+services:
+  yaoshu-token:
+    image: ylyue/yaoshu-token:latest
+    container_name: yaoshu-token
+    restart: always
+    ports:
+      - "9527:9527"
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/yaoshu_token?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=123456  # ⚠️ IMPORTANT: Change this password in production!
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=123456  # ⚠️ IMPORTANT: Change this password in production!
+      - TZ=Asia/Shanghai
+#      - SPRING_PROFILES_ACTIVE=dev  # Use dev profile for development
+#      - SESSION_SECRET=random_string  # Required for multi-node deployment
+#      - CRYPTO_SECRET=random_string  # Required for shared Redis
+    depends_on:
+      - redis
+      - mysql
+    networks:
+      - yaoshu-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:9527/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:latest
+    container_name: yaoshu-redis
+    restart: always
+    command: ["redis-server", "--requirepass", "123456"]  # ⚠️ IMPORTANT: Change this password in production!
+    networks:
+      - yaoshu-network
+
+  mysql:
+    image: mysql:8.2
+    container_name: yaoshu-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456  # ⚠️ IMPORTANT: Change this password in production!
+      MYSQL_DATABASE: yaoshu_token
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - yaoshu-network
+#    ports:
+#      - "3306:3306"  # Uncomment if you need to access MySQL from outside Docker
+
+volumes:
+  mysql_data:
+
+networks:
+  yaoshu-network:
+    driver: bridge

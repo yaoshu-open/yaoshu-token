@@ -1,0 +1,32 @@
+// 字体族（对齐 UI 技能推演：科技/SaaS 标准 + 开发者工具等宽）
+// 设计见 设计_DesignToken与样式重构.md §2.6
+$font-family-sans: 'Inter', -apple-system, blinkmacsystemfont, 'Segoe UI', roboto,
+  'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+$font-family-mono: 'JetBrains Mono', 'Fira Code', consolas, monaco, monospace;
+
+// 字号 scale：字号/字重/行高
+$font-size-xs: 12px;   // 辅助文字/标签
+$font-size-sm: 13px;   // 次要文字/表格
+$font-size-base: 14px; // 正文（对齐 EP --el-font-size-base）
+$font-size-lg: 16px;   // 标题/卡片标题
+$font-size-xl: 20px;   // 页面标题
+$font-size-2xl: 24px;  // 区块标题
+$font-size-3xl: 28px;  // 页面主标题
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$line-height-tight: 1.25;
+$line-height-base: 1.5;
+$line-height-relaxed: 1.75;
+
+// CSS 变量映射（供 Vue 组件 style 块直接使用，无需 @use）
+:root {
+  --ys-font-size-xs: #{$font-size-xs};
+  --ys-font-size-sm: #{$font-size-sm};
+  --ys-font-size-base: #{$font-size-base};
+  --ys-font-size-lg: #{$font-size-lg};
+  --ys-font-size-xl: #{$font-size-xl};
+  --ys-font-size-2xl: #{$font-size-2xl};
+  --ys-font-size-3xl: #{$font-size-3xl};
+}

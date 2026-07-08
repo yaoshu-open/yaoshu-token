@@ -1,0 +1,73 @@
+// Design Token 体系（S2 建立）：输出颜色/阴影 CSS 变量 + 暴露 SCSS 变量供全局使用
+@use './tokens.scss' as *;
+@use './variables.scss' as *;
+
+// Playground Markdown 代码高亮主题（亮色/暗色双模式）
+@use 'highlight.js/styles/github.css' as *;
+
+// Element Plus 全局视觉覆盖层（消费 token，覆盖 EP 工厂默认视觉为轻量科技感）
+@use './overrides/element-plus';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  font-family: $font-family-sans;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizelegibility;
+}
+
+// 等宽字体工具类（代码/Token/数据场景）
+.font-mono {
+  font-family: $font-family-mono;
+}
+
+a {
+  color: $color-primary;
+  text-decoration: none;
+}
+
+// markstream-vue CSS 变量映射 → Element Plus 设计体系
+// 将 markstream-vue 的 --ms-* 命名空间映射到 Element Plus --el-* 变量
+// S3 主题色定制：开源版使用 EP 默认蓝 #409eff（非品牌资产）
+// 商业版通过 ee-tokens.scss 覆盖为爻枢品牌蓝 #177BFF
+:root {
+  // markstream-vue 映射
+  --ms-text-color: var(--el-text-color-primary);
+  --ms-bg-color: var(--el-bg-color);
+  --ms-bg-color-page: var(--el-bg-color-page);
+  --ms-border-color: var(--el-border-color);
+  --ms-border-color-light: var(--el-border-color-lighter);
+  --ms-primary-color: var(--el-color-primary);
+  --ms-radius: var(--el-border-radius-base);
+  --ms-font-size: 14px;
+  --ms-code-bg: var(--el-fill-color-light);
+  --ms-code-text: var(--el-text-color-primary);
+
+  // EP primary 派生色（开源端 EP 默认蓝基调，商业版 ee-tokens 覆盖 --ys-color-primary 后自动重算）
+  --el-color-primary: var(--ys-color-primary);
+  --el-color-primary-light-3: #79bbff;
+  --el-color-primary-light-5: #a0cfff;
+  --el-color-primary-light-7: #c6e2b0;
+  --el-color-primary-light-8: #d9ecff;
+  --el-color-primary-light-9: #ecf5ff;
+  --el-color-primary-dark-2: #337ecc;
+}
+
+html.dark {
+  --ms-text-color: var(--el-text-color-primary);
+  --ms-bg-color: var(--el-bg-color);
+  --ms-bg-color-page: var(--el-bg-color-page);
+  --ms-border-color: var(--el-border-color);
+  --ms-border-color-light: var(--el-border-color-lighter);
+  --ms-primary-color: var(--el-color-primary);
+  --ms-code-bg: var(--el-fill-color-dark);
+  --ms-code-text: var(--el-text-color-primary);
+}

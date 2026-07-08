@@ -1,0 +1,132 @@
+name: Publish Docker image (alpha)
+
+on:
+  push:
+    branches:
+      - alpha
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "reason"
+        required: false
+
+jobs:
+  build_single_arch:
+    name: Build & push (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      packages: write
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Determine alpha version
+        id: version
+        run: |
+          VERSION="alpha-$(date +'%Y%m%d')-$(git rev-parse --short HEAD)"
+          echo "value=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Publishing version: $VERSION for ${{ matrix.arch }}"
+
+      - name: Normalize GHCR repository
+        run: echo "GHCR_REPOSITORY=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ylyue/yaoshu-token
+            ghcr.io/${{ env.GHCR_REPOSITORY }}
+
+      - name: Build & push single-arch
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: |
+            ylyue/yaoshu-token:${{ steps.version.outputs.value }}-${{ matrix.arch }}
+            ghcr.io/${{ env.GHCR_REPOSITORY }}:${{ steps.version.outputs.value }}-${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+
+  create_manifests:
+    name: Create multi-arch manifests
+    needs: [build_single_arch]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Normalize GHCR repository
+        run: echo "GHCR_REPOSITORY=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine alpha version
+        run: |
+          VERSION="alpha-$(date +'%Y%m%d')-$(git rev-parse --short HEAD)"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create and push Docker Hub manifest
+        run: |
+          docker buildx imagetools create \
+            -t ylyue/yaoshu-token:alpha \
+            -t ylyue/yaoshu-token:${VERSION} \
+            ylyue/yaoshu-token:${VERSION}-amd64 \
+            ylyue/yaoshu-token:${VERSION}-arm64
+
+      - name: Create and push GHCR manifest
+        run: |
+          docker buildx imagetools create \
+            -t ghcr.io/${{ env.GHCR_REPOSITORY }}:alpha \
+            -t ghcr.io/${{ env.GHCR_REPOSITORY }}:${VERSION} \
+            ghcr.io/${{ env.GHCR_REPOSITORY }}:${VERSION}-amd64 \
+            ghcr.io/${{ env.GHCR_REPOSITORY }}:${VERSION}-arm64

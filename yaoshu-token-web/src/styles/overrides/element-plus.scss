@@ -1,0 +1,298 @@
+// Element Plus 全局视觉覆盖层
+// 消费 --ys-* token，覆盖 EP 工厂默认视觉为官网轻量科技感
+// 设计见 设计_全站视觉风格升级.md §四
+// 动效值对齐 motion.scss（200ms / cubic-bezier(0.4,0,0.2,1)）
+
+// ============================================================
+// 容器类
+// ============================================================
+
+// Card：圆角 + 柔和阴影 + 细边框
+.el-card {
+  border: 1px solid var(--ys-border-lighter);
+  border-radius: var(--ys-radius-md);
+
+  // 默认态与 always-shadow 区分：默认 sm，always 用 md（设计文档 §4.1）
+  &:not(.is-hover-shadow, .is-never-shadow, .is-always-shadow) {
+    box-shadow: var(--ys-shadow-sm);
+  }
+
+  &.is-always-shadow {
+    box-shadow: var(--ys-shadow-md);
+  }
+
+  &.is-hover-shadow:hover {
+    box-shadow: var(--ys-shadow-md);
+  }
+
+  .el-card__body {
+    padding: var(--ys-spacing-5);
+  }
+}
+
+// 业务侧可选的卡片上浮交互（加 .ys-card-hover 类启用）
+.ys-card-hover {
+  cursor: pointer;
+  transition:
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    box-shadow: var(--ys-shadow-md);
+    transform: translateY(-2px);
+  }
+}
+
+// Dialog：大圆角 + 品牌渐变标题栏修饰类
+.el-dialog {
+  overflow: hidden;
+  border-radius: var(--ys-radius-lg);
+
+  .el-dialog__header {
+    padding: var(--ys-spacing-5) var(--ys-spacing-6);
+    margin-right: 0;
+    border-bottom: 1px solid var(--ys-border-lighter);
+  }
+
+  .el-dialog__body {
+    padding: var(--ys-spacing-6);
+  }
+}
+
+// 品牌渐变标题栏（业务侧加 .is-brand-header 启用）
+.el-dialog__header.is-brand-header {
+  background: var(--ys-gradient-brand);
+  border-bottom: none;
+
+  .el-dialog__title,
+  .el-dialog__headerbtn .el-dialog__close {
+    color: #fff;
+  }
+}
+
+// 遮罩模糊
+.el-overlay {
+  backdrop-filter: blur(4px);
+}
+
+// Drawer：浮起阴影对齐 Dialog（设计文档 §4.1）
+// 注：drawer 从屏幕边缘滑出贴边显示，不加圆角（圆角会与边缘脱节），仅用阴影表达浮起
+.el-drawer {
+  box-shadow: var(--ys-shadow-lg);
+}
+
+// ============================================================
+// 表单类
+// ============================================================
+
+// Button：微动效（hover 上浮 1px + 阴影增强，active 回弹）
+.el-button {
+  border-radius: var(--ys-radius-base);
+  transition:
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:not(.is-disabled, .is-loading):hover {
+    box-shadow: var(--ys-shadow-sm);
+    transform: translateY(-1px);
+  }
+
+  &:not(.is-disabled, .is-loading):active {
+    transform: translateY(0);
+  }
+}
+
+// 品牌渐变按钮（关键 CTA，业务侧加 .el-button--brand 启用）
+.el-button--brand {
+  color: #fff;
+  background: var(--ys-gradient-brand);
+  border: none;
+
+  &:hover,
+  &:focus {
+    color: #fff;
+    background: var(--ys-gradient-brand);
+    opacity: 0.9;
+  }
+}
+
+// Input/Textarea：圆角 + 品牌色聚焦光晕（替代 EP 默认 outline）
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: var(--ys-radius-base);
+  transition: box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 3px var(--el-color-primary-light-7);
+}
+
+// ============================================================
+// 数据类
+// ============================================================
+
+// Table：柔和表头 + 加大行高 + 悬浮浅蓝 + 移除竖线边框
+.el-table {
+  --el-table-border-color: var(--ys-border-lighter);
+
+  th.el-table__cell {
+    font-weight: 600;
+    background: var(--el-bg-color-overlay);
+  }
+
+  // 单元格纵向 spacing-3(12px) 横向 spacing-4(16px)（设计文档 §4.3）
+  .cell {
+    padding: var(--ys-spacing-3) var(--ys-spacing-4);
+  }
+
+  .el-table__cell {
+    padding: var(--ys-spacing-3) 0;
+  }
+
+  tbody tr:hover > td.el-table__cell {
+    background: var(--ys-bg-brand-soft) !important;
+  }
+}
+
+// Vxe Table（复杂表格场景）：对齐 el-table 视觉（柔和表头 + 悬浮浅蓝）
+.vxe-table {
+  .vxe-header--column {
+    font-weight: 600;
+    background: var(--el-bg-color-overlay);
+  }
+
+  .vxe-body--row.row--hover .vxe-body--column {
+    background: var(--ys-bg-brand-soft);
+  }
+}
+
+// Tag：胶囊圆角 + 浅底深字类型色（设计文档 §4.3）
+.el-tag {
+  border-radius: var(--ys-radius-full);
+
+  &.el-tag--primary {
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    border-color: var(--el-color-primary-light-7);
+  }
+
+  &.el-tag--success {
+    color: var(--el-color-success);
+    background: var(--el-color-success-light-9);
+    border-color: var(--el-color-success-light-7);
+  }
+
+  &.el-tag--warning {
+    color: var(--el-color-warning);
+    background: var(--el-color-warning-light-9);
+    border-color: var(--el-color-warning-light-7);
+  }
+
+  &.el-tag--danger {
+    color: var(--el-color-danger);
+    background: var(--el-color-danger-light-9);
+    border-color: var(--el-color-danger-light-7);
+  }
+}
+
+// Pagination：激活页品牌色背景
+.el-pagination.is-background .el-pager li.is-active {
+  background: var(--ys-color-primary);
+  border-radius: var(--ys-radius-base);
+}
+
+// ============================================================
+// 导航类
+// ============================================================
+
+// Menu：活跃项品牌色左边框 + 浅蓝背景，hover 浅灰背景（设计文档 §4.4）
+.el-menu {
+  border-right: none;
+
+  .el-menu-item {
+    transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:hover {
+      background: var(--el-fill-color-light);
+    }
+
+    &.is-active {
+      position: relative;
+      color: var(--ys-color-primary);
+      background: var(--ys-bg-brand-soft);
+
+      // 品牌色左边框指示器
+      &::before {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 3px;
+        content: '';
+        background: var(--ys-color-primary);
+      }
+    }
+  }
+}
+
+// Tabs：活跃标签品牌色底线 + 字重
+.el-tabs__item.is-active {
+  font-weight: 600;
+  color: var(--ys-color-primary);
+}
+
+.el-tabs__active-bar {
+  background: var(--ys-color-primary);
+}
+
+// Dropdown：圆角 + 大阴影 + 项 hover 浅蓝
+.el-dropdown-menu {
+  padding: var(--ys-spacing-1);
+  border-radius: var(--ys-radius-md);
+  box-shadow: var(--ys-shadow-lg);
+
+  .el-dropdown-menu__item {
+    padding: var(--ys-spacing-2) var(--ys-spacing-4);
+    border-radius: var(--ys-radius-sm);
+
+    &:hover {
+      color: var(--ys-color-primary);
+      background: var(--ys-bg-brand-soft);
+    }
+  }
+}
+
+// ============================================================
+// 反馈类
+// ============================================================
+
+// Message：圆角 + 大阴影
+.el-message {
+  border-radius: var(--ys-radius-md);
+  box-shadow: var(--ys-shadow-lg);
+}
+
+// MessageBox：大圆角 + 大阴影（设计文档 §4.1）
+.el-message-box {
+  border-radius: var(--ys-radius-lg);
+  box-shadow: var(--ys-shadow-lg);
+}
+
+// Notification：圆角 + 大阴影 + 左侧品牌色指示条（设计文档 §4.5）
+// 注：EP notification container 无 --success/--warning/--danger 类型 class（类型仅通过 icon 区分），
+// 全局无法按类型变 container 色；统一用品牌色作指示条。业务侧需按类型定制可通过 customClass 传入
+.el-notification {
+  border-left: 4px solid var(--ys-color-primary);
+  border-radius: var(--ys-radius-md);
+  box-shadow: var(--ys-shadow-lg);
+}
+
+// Alert：圆角
+.el-alert {
+  border-radius: var(--ys-radius-base);
+}
+
+// Loading：品牌色 spinner
+.el-loading-spinner .path {
+  stroke: var(--ys-color-primary);
+}
