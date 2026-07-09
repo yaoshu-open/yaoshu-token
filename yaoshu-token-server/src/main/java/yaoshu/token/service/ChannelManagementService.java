@@ -2175,6 +2175,10 @@ public class ChannelManagementService {
         JsonNode subscription = requestBalanceJson(channel, baseUrl + "/v1/dashboard/billing/subscription", authHeaders(channel, key));
         boolean hasPaymentMethod = subscription.path("has_payment_method").asBoolean(false);
         BigDecimal hardLimitUsd = decimalOrZero(subscription.path("hard_limit_usd"));
+        // OpenAI billing 端点已废弃，多数中转站返回占位符 hard_limit（如 1 亿），查询结果不可信
+        if (hardLimitUsd.compareTo(BigDecimal.valueOf(1_000_000D)) >= 0) {
+            throw new IllegalStateException(I18nUtils.get("channel.balance_unavailable"));
+        }
 
         LocalDateTime now = LocalDateTime.now();
         String startDate = now.withDayOfMonth(1).toLocalDate().toString();
@@ -2302,7 +2306,8 @@ public class ChannelManagementService {
         }
         HttpResponse<byte[]> response = HTTP_CLIENT.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
         if (response.statusCode() != 200) {
-            throw new IOException("Failed to fetch models");
+            throw new IOException(I18nUtils.get("channel.get_model_list_failed",
+                    response.statusCode() + ": " + new String(response.body())));
         }
         return extractOpenAIModelIds(objectMapper.readTree(response.body()));
     }
@@ -2743,6 +2748,14 @@ public class ChannelManagementService {
     private String normalizeBaseUrl(int type, String baseUrl) {
         String normalized = trimToNull(baseUrl);
         if (normalized != null) {
+            // 去除尾部斜杠，避免后续拼接成重复分隔符
+            while (normalized.endsWith("/")) {
+                normalized = normalized.substring(0, normalized.length() - 1);
+            }
+            // 去除尾部 /v1 后缀，避免与后续拼接的 /v1/... 重复成 /v1/v1/...
+            if (normalized.endsWith("/v1")) {
+                normalized = normalized.substring(0, normalized.length() - 3);
+            }
             return normalized;
         }
         if (type < 0 || type >= ChannelConstants.CHANNEL_BASE_URLS.size()) {

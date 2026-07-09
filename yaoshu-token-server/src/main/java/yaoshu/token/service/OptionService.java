@@ -380,6 +380,18 @@ public class OptionService {
         }
         optionCache.put(key, value);
 
+        // 写库成功后同步刷新 CommonConstants.optionMap（SystemController.getStatus 等公开端点读此 Map）
+        // 缺失此同步会导致管理员修改配置后 /api/status 返回旧值，直到重启才生效
+        yaoshu.token.constant.CommonConstants.optionMapLock.writeLock().lock();
+        try {
+            Map<String, String> optionMap = yaoshu.token.constant.CommonConstants.optionMap;
+            if (optionMap != null) {
+                optionMap.put(key, value);
+            }
+        } finally {
+            yaoshu.token.constant.CommonConstants.optionMapLock.writeLock().unlock();
+        }
+
         // 写库成功后同步刷新内存 Map
         // 覆盖 10 个 ratio key（详见 syncRatioMemoryMap）
         syncRatioMemoryMap(key, value);

@@ -5,7 +5,8 @@
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElButton, ElPagination, ElAlert } from 'element-plus'
+import { ElButton, ElPagination, ElAlert, ElMessage } from 'element-plus'
+import { CopyDocument } from '@element-plus/icons-vue'
 import RedemptionToolbar from '@/components/redemption/RedemptionToolbar.vue'
 import RedemptionTable from '@/components/redemption/RedemptionTable.vue'
 import RedemptionMutateDrawer from '@/components/redemption/RedemptionMutateDrawer.vue'
@@ -24,6 +25,9 @@ const {
   filters,
   pagination,
   selectedIds,
+  hasSelection,
+  selectedCount,
+  clearSelection,
   fetchRedemptions,
   handleSearch,
   handleResetFilters,
@@ -32,7 +36,7 @@ const {
   handleSelectionChange,
 } = useRedemptionsData()
 
-const { handleDelete, handleClearInvalid } = useRedemptionActions(fetchRedemptions)
+const { handleDelete, handleBatchDelete, handleClearInvalid, actionLoading } = useRedemptionActions(fetchRedemptions)
 
 // 创建/编辑抽屉
 const drawerOpen = ref(false)
@@ -58,6 +62,23 @@ function handleRowAction(action: RedemptionRowAction, row: Redemption): void {
       // copyKey 在 Table 组件内直接处理（navigator.clipboard）
       break
   }
+}
+
+async function handleBatchCopy(): Promise<void> {
+  const selectedRedemptions = redemptions.value.filter((r) => selectedIds.value.includes(r.id))
+  const keys = selectedRedemptions.map((r) => r.key)
+  if (keys.length === 0) return
+  try {
+    await navigator.clipboard.writeText(keys.join('\n'))
+    ElMessage.success(t('redemption.actions.batchCopySuccess', { count: keys.length }))
+  } catch {
+    ElMessage.error(t('redemption.actions.copyFailed'))
+  }
+}
+
+async function handleBatchDeleteAction(): Promise<void> {
+  await handleBatchDelete(selectedIds.value)
+  clearSelection()
 }
 </script>
 
@@ -106,6 +127,31 @@ function handleRowAction(action: RedemptionRowAction, row: Redemption): void {
       :closable="false"
       style="margin-bottom: var(--ys-spacing-3)"
     />
+
+    <div
+      v-if="hasSelection"
+      class="redemption-view__batch-actions"
+    >
+      <span class="redemption-view__batch-count">
+        {{ t('redemption.batch.selectedCount', { count: selectedCount }) }}
+      </span>
+      <el-button
+        size="small"
+        :disabled="actionLoading"
+        @click="handleBatchCopy"
+      >
+        <el-icon><CopyDocument /></el-icon>
+        {{ t('redemption.actions.batchCopy') }}
+      </el-button>
+      <el-button
+        size="small"
+        type="danger"
+        :loading="actionLoading"
+        @click="handleBatchDeleteAction"
+      >
+        {{ t('redemption.actions.batchDelete') }}
+      </el-button>
+    </div>
 
     <div class="redemption-view__table-wrapper">
       <RedemptionTable
@@ -174,6 +220,18 @@ function handleRowAction(action: RedemptionRowAction, row: Redemption): void {
 .redemption-view__header-actions {
   display: flex;
   gap: var(--ys-spacing-2);
+}
+
+.redemption-view__batch-actions {
+  display: flex;
+  gap: var(--ys-spacing-2);
+  align-items: center;
+  padding: var(--ys-spacing-2) 0;
+}
+
+.redemption-view__batch-count {
+  font-size: var(--ys-font-size-sm);
+  color: var(--el-text-color-secondary);
 }
 
 .redemption-view__table-wrapper {

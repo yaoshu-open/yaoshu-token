@@ -16,8 +16,10 @@ import CheckinCalendarCard from '@/components/profile/CheckinCalendarCard.vue'
 const { t } = useI18n()
 const { profile, loading, fetchProfile, refreshProfile } = useProfile()
 
-// SPI 功能开关：商业版后端未实现 Passkey 时隐藏 PasskeyCard
+// SPI 功能开关：通过 SPI 扩展点隐藏 PasskeyCard
 const passkeyHidden = isFeatureHidden('passkey')
+// SPI 功能开关：通过 SPI 扩展点隐藏侧边栏模块设置卡片
+const sidebarModulesHidden = isFeatureHidden('sidebar-modules')
 
 onMounted(() => {
   fetchProfile()
@@ -57,7 +59,7 @@ onMounted(() => {
           :profile="profile"
           @profile-update="refreshProfile"
         />
-        <SidebarModulesCard :profile="profile" />
+        <SidebarModulesCard v-if="!sidebarModulesHidden" :profile="profile" />
         <CheckinCalendarCard />
       </div>
     </div>

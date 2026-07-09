@@ -35,12 +35,15 @@ export interface UserProfile extends UserInfo {
 
 export type NotifyType = 'email' | 'webhook' | 'bark' | 'gotify'
 
+/**
+ * 侧边栏模块配置（section -> module 嵌套结构，与 useSidebarConfig 期望一致）。
+ * 示例：{ personal: { enabled: true, topup: false, personal: true } }
+ */
 export interface SidebarModuleConfig {
-  showWallet?: boolean
-  showTokens?: boolean
-  showDashboard?: boolean
-  showProfile?: boolean
-  showCheckin?: boolean
+  [section: string]: {
+    enabled?: boolean
+    [module: string]: boolean | undefined
+  }
 }
 
 export interface UserSettings {

@@ -71,8 +71,8 @@ async function handleQueryBalance(): Promise<void> {
       balance: res.balance,
       balanceUpdatedTime: localUpdatedTime.value
     })
-  } catch (e) {
-    ElMessage.error((e as Error)?.message || t('channel.dialog.balance.updateFailed'))
+  } catch {
+    // 错误由请求拦截器统一提示
   } finally {
     isQuerying.value = false
   }

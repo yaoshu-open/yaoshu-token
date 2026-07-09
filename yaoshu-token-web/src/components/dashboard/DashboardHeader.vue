@@ -44,12 +44,14 @@ const displayName = computed(() => {
         {{ t('dashboard.subtitle') }}
       </p>
     </div>
-    <ElButton
-      :icon="Refresh"
-      :loading="loading"
-      circle
-      @click="emit('refresh')"
-    />
+    <slot name="actions">
+      <ElButton
+        :icon="Refresh"
+        :loading="loading"
+        circle
+        @click="emit('refresh')"
+      />
+    </slot>
   </div>
 </template>
 

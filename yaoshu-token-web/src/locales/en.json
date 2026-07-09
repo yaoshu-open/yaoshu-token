@@ -580,7 +580,9 @@
       "title": "Filters",
       "timeRange": "Time range",
       "granularity": "Time granularity",
-      "reset": "Reset"
+      "reset": "Reset",
+      "username": "Username",
+      "usernamePlaceholder": "Username"
     }
   },
   "dashboard": {
@@ -1248,11 +1250,20 @@
       "disableFailed": "Disable failed",
       "alreadyUsed": "Used codes cannot be modified",
       "copySuccess": "Copied to clipboard",
-      "copyFailed": "Copy failed"
+      "copyFailed": "Copy failed",
+      "batchDelete": "Batch Delete",
+      "batchDeleteSuccess": "Batch deleted successfully",
+      "batchDeleteFailed": "Batch delete failed",
+      "batchCopy": "Batch Copy",
+      "batchCopySuccess": "Copied {count} redemption codes"
     },
     "confirm": {
       "delete": "Delete redemption code \"{name}\"?",
-      "clearInvalid": "Clear all invalid redemption codes? This action cannot be undone."
+      "clearInvalid": "Clear all invalid redemption codes? This action cannot be undone.",
+      "batchDelete": "Delete {count} selected redemption codes? This action cannot be undone."
+    },
+    "batch": {
+      "selectedCount": "{count} selected"
     }
   },
   "user": {

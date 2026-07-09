@@ -45,7 +45,7 @@ export interface SystemStatusData {
   price?: number
   stripeUnitPrice?: number
   // 以下货币字段契约 §1.2 未明确列出，保留为可选 camelCase
-  quotaDisplayType?: 'TOKENS' | 'USD' | 'CUSTOM'
+  quotaDisplayType?: 'TOKENS' | 'USD' | 'CNY' | 'CUSTOM'
   customCurrencySymbol?: string
   customCurrencyExchangeRate?: number
   displayTokenStatEnabled?: boolean

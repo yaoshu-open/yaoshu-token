@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Search, Refresh, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import type { CommonLogsFilters } from '@/composables/usage-logs/useCommonLogsData'
@@ -26,6 +26,9 @@ const showAdvanced = ref(false)
 
 // 商业版 PD-03 ：无分组概念，隐藏 group 筛选项
 const groupHidden = isFeatureHidden('group-ratio')
+
+// 高级筛选内字段全部对当前用户隐藏时（商业版普通用户：group 隐藏 + 其余 admin only），不显示入口按钮
+const hasAdvancedFields = computed(() => props.isAdmin || !groupHidden)
 
 // 模型/API 密钥下拉选项（PD-08-5：文本输入改下拉）
 const { availableModels } = useDashboardData()
@@ -134,6 +137,7 @@ const logTypeOptions = [
           {{ t('common.reset') }}
         </ElButton>
         <ElButton
+          v-if="hasAdvancedFields"
           link
           type="primary"
           @click="showAdvanced = !showAdvanced"

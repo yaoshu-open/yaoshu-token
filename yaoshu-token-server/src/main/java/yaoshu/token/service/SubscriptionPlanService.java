@@ -4,9 +4,10 @@ import cn.hutool.v7.core.util.RandomUtil;
 import cn.hutool.v7.core.text.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import ai.yue.library.base.exception.ResultException;
 import ai.yue.library.base.util.I18nUtils;
+import ai.yue.library.base.view.R;
 import lombok.RequiredArgsConstructor;
-import ai.yue.library.base.util.I18nUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,11 +76,11 @@ public class SubscriptionPlanService {
     /** 获取计划 */
     public SubscriptionPlan getPlanById(int id) {
         if (id <= 0) {
-            throw new RuntimeException("invalid plan id");
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.invalid_id")));
         }
         SubscriptionPlan plan = planMapper.selectById(id);
         if (plan == null) {
-            throw new RuntimeException(I18nUtils.get("subscription.not_exists"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.not_exists")));
         }
         normalizeDefaults(plan);
         return plan;
@@ -143,11 +144,11 @@ public class SubscriptionPlanService {
     @Transactional(rollbackFor = Exception.class)
     public void updatePlan(int id, SubscriptionPlan plan) {
         if (id <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.invalid_id"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.invalid_id")));
         }
         SubscriptionPlan existed = planMapper.selectById(id);
         if (existed == null) {
-            throw new RuntimeException(I18nUtils.get("subscription.not_exists"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.not_exists")));
         }
         plan.setId(id);
         preparePlanForSave(plan, false);
@@ -159,37 +160,37 @@ public class SubscriptionPlanService {
     @Transactional(rollbackFor = Exception.class)
     public void updatePlanStatus(int id, boolean enabled) {
         if (id <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.invalid_id"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.invalid_id")));
         }
         LambdaUpdateWrapper<SubscriptionPlan> uw = new LambdaUpdateWrapper<>();
         uw.eq(SubscriptionPlan::getId, id)
                 .set(SubscriptionPlan::getEnabled, enabled)
                 .set(SubscriptionPlan::getUpdatedAt, now());
         if (planMapper.update(null, uw) <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.not_exists"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.not_exists")));
         }
     }
 
     private void preparePlanForSave(SubscriptionPlan plan, boolean creating) {
         if (plan == null) {
-            throw new RuntimeException(I18nUtils.get("common.invalid_params"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
         }
         normalizeDefaults(plan);
         String title = plan.getTitle() == null ? "" : plan.getTitle().trim();
         if (title.isEmpty()) {
-            throw new RuntimeException(I18nUtils.get("subscription.title_empty"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.title_empty")));
         }
         if (plan.getPriceAmount() == null || plan.getPriceAmount() < 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.price_negative"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.price_negative")));
         }
         if (plan.getPriceAmount() > 9999) {
-            throw new RuntimeException(I18nUtils.get("subscription.price_max"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.price_max")));
         }
         if (plan.getMaxPurchasePerUser() != null && plan.getMaxPurchasePerUser() < 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.purchase_limit_negative"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.purchase_limit_negative")));
         }
         if (plan.getTotalAmount() != null && plan.getTotalAmount() < 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.quota_negative"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.quota_negative")));
         }
         String durationUnit = plan.getDurationUnit() == null ? "" : plan.getDurationUnit().trim();
         if (durationUnit.isEmpty()) {
@@ -201,16 +202,16 @@ public class SubscriptionPlanService {
                 plan.setDurationValue(1);
             }
         } else if (plan.getCustomSeconds() == null || plan.getCustomSeconds() <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.custom_duration_gt_zero"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.custom_duration_gt_zero")));
         }
         String upgradeGroup = plan.getUpgradeGroup() == null ? "" : plan.getUpgradeGroup().trim();
         if (!upgradeGroup.isEmpty() && !GroupRatioConfig.containsGroupRatio(upgradeGroup)) {
-            throw new RuntimeException(I18nUtils.get("subscription.group_not_exists"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.group_not_exists")));
         }
         String resetPeriod = normalizeResetPeriod(plan.getQuotaResetPeriod());
         if (RESET_CUSTOM.equals(resetPeriod)
                 && (plan.getQuotaResetCustomSeconds() == null || plan.getQuotaResetCustomSeconds() <= 0)) {
-            throw new RuntimeException(I18nUtils.get("subscription.reset_cycle_gt_zero"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.reset_cycle_gt_zero")));
         }
         plan.setTitle(title);
         plan.setCurrency("USD");
@@ -249,7 +250,7 @@ public class SubscriptionPlanService {
 
     public List<UserSubscription> listAllUserSubscriptions(int userId) {
         if (userId <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.invalid_user_id"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.invalid_user_id")));
         }
         return userSubscriptionMapper.selectList(
                 new LambdaQueryWrapper<UserSubscription>()
@@ -260,7 +261,7 @@ public class SubscriptionPlanService {
 
     public List<UserSubscription> listActiveUserSubscriptions(int userId) {
         if (userId <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.invalid_user_id"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.invalid_user_id")));
         }
         long now = now();
         return userSubscriptionMapper.selectList(
@@ -274,7 +275,7 @@ public class SubscriptionPlanService {
 
     public long countUserSubscriptionsByPlan(int userId, int planId) {
         if (userId <= 0 || planId <= 0) {
-            throw new RuntimeException("invalid userId or planId");
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
         }
         return userSubscriptionMapper.selectCount(
                 new LambdaQueryWrapper<UserSubscription>()
@@ -287,23 +288,23 @@ public class SubscriptionPlanService {
     @Transactional(rollbackFor = Exception.class)
     public void purchaseWithBalance(int userId, int planId) {
         if (userId <= 0 || planId <= 0) {
-            throw new RuntimeException(I18nUtils.get("common.invalid_params"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
         }
         SubscriptionPlan plan = lockPlan(planId);
         if (!Boolean.TRUE.equals(plan.getEnabled())) {
-            throw new RuntimeException(I18nUtils.get("subscription.plan_not_enabled"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.plan_not_enabled")));
         }
         if (plan.getPriceAmount() == null || plan.getPriceAmount() < 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.price_negative"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.price_negative")));
         }
         if (!Boolean.TRUE.equals(plan.getAllowBalancePay())) {
-            throw new RuntimeException(I18nUtils.get("subscription.balance_not_allowed"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.balance_not_allowed")));
         }
         int requiredQuota = calcSubscriptionBalanceQuota(plan.getPriceAmount());
         User user = lockUser(userId);
         long currentQuota = user.getQuota() == null ? 0 : user.getQuota();
         if (requiredQuota > 0 && currentQuota < requiredQuota) {
-            throw new RuntimeException(I18nUtils.get("quota.insufficient"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("quota.insufficient")));
         }
         if (requiredQuota > 0) {
             userMapper.decreaseQuota(userId, requiredQuota);
@@ -329,19 +330,19 @@ public class SubscriptionPlanService {
     @Transactional(rollbackFor = Exception.class)
     public SubscriptionOrder createPendingEpayOrder(int userId, int planId, String paymentMethod) {
         if (userId <= 0 || planId <= 0) {
-            throw new RuntimeException(I18nUtils.get("common.invalid_params"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
         }
         SubscriptionPlan plan = lockPlan(planId);
         if (!Boolean.TRUE.equals(plan.getEnabled())) {
-            throw new RuntimeException(I18nUtils.get("subscription.plan_not_enabled"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.plan_not_enabled")));
         }
         if (plan.getPriceAmount() == null || plan.getPriceAmount() < 0.01D) {
-            throw new RuntimeException(I18nUtils.get("subscription.amount_too_low"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.amount_too_low")));
         }
         if (plan.getMaxPurchasePerUser() != null && plan.getMaxPurchasePerUser() > 0) {
             long count = countUserSubscriptionsByPlan(userId, planId);
             if (count >= plan.getMaxPurchasePerUser()) {
-                throw new RuntimeException(I18nUtils.get("subscription.purchase_limit_reached"));
+                throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.purchase_limit_reached")));
             }
         }
         SubscriptionOrder order = new SubscriptionOrder();
@@ -364,22 +365,22 @@ public class SubscriptionPlanService {
                                                         String paymentProvider,
                                                         String tradeNo) {
         if (userId <= 0 || planId <= 0) {
-            throw new RuntimeException(I18nUtils.get("common.invalid_params"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
         }
         if (StrUtil.isBlank(paymentMethod) || StrUtil.isBlank(paymentProvider) || StrUtil.isBlank(tradeNo)) {
-            throw new RuntimeException(I18nUtils.get("topup.payment_params_error"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("topup.payment_params_error")));
         }
         SubscriptionPlan plan = lockPlan(planId);
         if (!Boolean.TRUE.equals(plan.getEnabled())) {
-            throw new RuntimeException(I18nUtils.get("subscription.plan_not_enabled"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.plan_not_enabled")));
         }
         if (plan.getPriceAmount() == null || plan.getPriceAmount() < 0.01D) {
-            throw new RuntimeException(I18nUtils.get("subscription.amount_too_low"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.amount_too_low")));
         }
         if (plan.getMaxPurchasePerUser() != null && plan.getMaxPurchasePerUser() > 0) {
             long count = countUserSubscriptionsByPlan(userId, planId);
             if (count >= plan.getMaxPurchasePerUser()) {
-                throw new RuntimeException(I18nUtils.get("subscription.purchase_limit_reached"));
+                throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.purchase_limit_reached")));
             }
         }
         SubscriptionOrder order = new SubscriptionOrder();
@@ -401,23 +402,23 @@ public class SubscriptionPlanService {
                                       String expectedPaymentProvider,
                                       String actualPaymentMethod) {
         if (StrUtil.isBlank(tradeNo)) {
-            throw new RuntimeException("tradeNo is empty");
+            throw new ResultException(R.errorPrompt(I18nUtils.get("topup.payment_params_error")));
         }
         SubscriptionOrder order = orderMapper.selectOne(new LambdaQueryWrapper<SubscriptionOrder>()
                 .eq(SubscriptionOrder::getTradeNo, tradeNo)
                 .last("LIMIT 1 FOR UPDATE"));
         if (order == null) {
-            throw new RuntimeException(I18nUtils.get("subscription.not_found"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.not_found")));
         }
         if (StrUtil.isNotBlank(expectedPaymentProvider)
                 && !StrUtil.equals(order.getPaymentProvider(), expectedPaymentProvider)) {
-            throw new RuntimeException(I18nUtils.get("subscription.payment_gateway_mismatch"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.payment_gateway_mismatch")));
         }
         if (CommonConstants.TOP_UP_STATUS_SUCCESS.equals(order.getStatus())) {
             return;
         }
         if (!CommonConstants.TOP_UP_STATUS_PENDING.equals(order.getStatus())) {
-            throw new RuntimeException(I18nUtils.get("subscription.order_status_error"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.order_status_error")));
         }
 
         SubscriptionPlan plan = getPlanById(order.getPlanId());
@@ -455,17 +456,17 @@ public class SubscriptionPlanService {
     @Transactional(rollbackFor = Exception.class)
     public void expireOrder(String tradeNo, String expectedPaymentProvider) {
         if (StrUtil.isBlank(tradeNo)) {
-            throw new RuntimeException("tradeNo is empty");
+            throw new ResultException(R.errorPrompt(I18nUtils.get("topup.payment_params_error")));
         }
         SubscriptionOrder order = orderMapper.selectOne(new LambdaQueryWrapper<SubscriptionOrder>()
                 .eq(SubscriptionOrder::getTradeNo, tradeNo)
                 .last("LIMIT 1 FOR UPDATE"));
         if (order == null) {
-            throw new RuntimeException(I18nUtils.get("subscription.not_found"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.not_found")));
         }
         if (StrUtil.isNotBlank(expectedPaymentProvider)
                 && !StrUtil.equals(order.getPaymentProvider(), expectedPaymentProvider)) {
-            throw new RuntimeException(I18nUtils.get("subscription.payment_gateway_mismatch"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.payment_gateway_mismatch")));
         }
         if (!CommonConstants.TOP_UP_STATUS_PENDING.equals(order.getStatus())) {
             return;
@@ -489,7 +490,7 @@ public class SubscriptionPlanService {
     @Transactional(rollbackFor = Exception.class)
     public String adminBindSubscription(int userId, int planId) {
         if (userId <= 0 || planId <= 0) {
-            throw new RuntimeException(I18nUtils.get("common.invalid_params"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
         }
         SubscriptionPlan plan = getPlanById(planId);
         createUserSubscriptionFromPlanTx(userId, plan, "admin");
@@ -502,7 +503,7 @@ public class SubscriptionPlanService {
     @Transactional(rollbackFor = Exception.class)
     public String adminInvalidateUserSubscription(int userSubscriptionId) {
         if (userSubscriptionId <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.invalid_id"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.invalid_id")));
         }
         long now = now();
         UserSubscription sub = lockUserSubscription(userSubscriptionId);
@@ -519,7 +520,7 @@ public class SubscriptionPlanService {
     @Transactional(rollbackFor = Exception.class)
     public String adminDeleteUserSubscription(int userSubscriptionId) {
         if (userSubscriptionId <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.invalid_id"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.invalid_id")));
         }
         long now = now();
         UserSubscription sub = lockUserSubscription(userSubscriptionId);
@@ -536,7 +537,7 @@ public class SubscriptionPlanService {
                         .eq(SubscriptionPlan::getId, planId)
                         .last("LIMIT 1 FOR UPDATE"));
         if (plan == null) {
-            throw new RuntimeException(I18nUtils.get("subscription.not_exists"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.not_exists")));
         }
         normalizeDefaults(plan);
         return plan;
@@ -548,7 +549,7 @@ public class SubscriptionPlanService {
                         .eq(User::getId, userId)
                         .last("LIMIT 1 FOR UPDATE"));
         if (user == null) {
-            throw new RuntimeException(I18nUtils.get("admin.user_not_exists"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("admin.user_not_exists")));
         }
         return user;
     }
@@ -559,7 +560,7 @@ public class SubscriptionPlanService {
                         .eq(UserSubscription::getId, userSubscriptionId)
                         .last("LIMIT 1 FOR UPDATE"));
         if (sub == null) {
-            throw new RuntimeException(I18nUtils.get("subscription.not_found"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.not_found")));
         }
         return sub;
     }
@@ -569,7 +570,7 @@ public class SubscriptionPlanService {
             return 0;
         }
         if (CommonConstants.quotaPerUnit <= 0) {
-            throw new RuntimeException(I18nUtils.get("subscription.quota_unit_config_error"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.quota_unit_config_error")));
         }
         return BigDecimal.valueOf(priceAmount)
                 .multiply(BigDecimal.valueOf(CommonConstants.quotaPerUnit))
@@ -600,12 +601,12 @@ public class SubscriptionPlanService {
         if (StrUtil.isBlank(topUp.getPaymentMethod())) {
             topUp.setPaymentMethod(order.getPaymentMethod());
         } else if (!StrUtil.equals(topUp.getPaymentMethod(), order.getPaymentMethod())) {
-            throw new RuntimeException(I18nUtils.get("subscription.payment_method_mismatch"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.payment_method_mismatch")));
         }
         if (StrUtil.isBlank(topUp.getPaymentProvider())) {
             topUp.setPaymentProvider(order.getPaymentProvider());
         } else if (!StrUtil.equals(topUp.getPaymentProvider(), order.getPaymentProvider())) {
-            throw new RuntimeException(I18nUtils.get("subscription.payment_gateway_mismatch"));
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.payment_gateway_mismatch")));
         }
         if (topUp.getCreateTime() == null || topUp.getCreateTime() == 0) {
             topUp.setCreateTime(order.getCreateTime());
@@ -617,12 +618,12 @@ public class SubscriptionPlanService {
 
     private UserSubscription createUserSubscriptionFromPlanTx(int userId, SubscriptionPlan plan, String source) {
         if (plan == null || plan.getId() == null || plan.getId() <= 0) {
-            throw new RuntimeException("invalid plan");
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
         }
         if (plan.getMaxPurchasePerUser() != null && plan.getMaxPurchasePerUser() > 0) {
             long count = countUserSubscriptionsByPlan(userId, plan.getId());
             if (count >= plan.getMaxPurchasePerUser()) {
-                throw new RuntimeException(I18nUtils.get("subscription.purchase_limit_reached"));
+                throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.purchase_limit_reached")));
             }
         }
         User user = lockUser(userId);
@@ -674,11 +675,11 @@ public class SubscriptionPlanService {
                 return start.plusHours(durationValue).atZone(ZoneId.systemDefault()).toEpochSecond();
             case DURATION_CUSTOM:
                 if (plan.getCustomSeconds() == null || plan.getCustomSeconds() <= 0) {
-                    throw new RuntimeException("custom_seconds must be > 0");
+                    throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.custom_duration_gt_zero")));
                 }
                 return start.plusSeconds(plan.getCustomSeconds()).atZone(ZoneId.systemDefault()).toEpochSecond();
             default:
-                throw new RuntimeException("invalid duration_unit: " + durationUnit);
+                throw new ResultException(R.errorPrompt("invalid duration_unit: " + durationUnit));
         }
     }
 
@@ -772,7 +773,7 @@ public class SubscriptionPlanService {
      */
     public boolean maybeResetUserSubscriptionWithPlan(UserSubscription sub, SubscriptionPlan plan, long now) {
         if (sub == null || plan == null) {
-            throw new RuntimeException("invalid reset args");
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
         }
         if (sub.getNextResetTime() != null && sub.getNextResetTime() > 0 && sub.getNextResetTime() > now) {
             return false;

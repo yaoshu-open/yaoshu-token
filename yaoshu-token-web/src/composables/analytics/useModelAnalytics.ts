@@ -207,8 +207,9 @@ export function buildTrend(
   const times: string[] = []
   const buckets: number[] = []
   for (let ts = start; ts <= end; ts += step) {
-    times.push(dayjs.unix(ts).format(fmt))
-    buckets.push(bucketStart(ts, granularity))
+    const bStart = bucketStart(ts, granularity)
+    times.push(dayjs.unix(bStart).format(fmt))
+    buckets.push(bStart)
   }
 
   // 桶去重（同一桶起始只保留一个）

@@ -7,9 +7,11 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElDialog, ElForm, ElFormItem, ElInputNumber, ElRadioGroup, ElRadioButton, ElButton, ElMessage, ElSwitch } from 'element-plus'
 import { manageUserQuota } from '@/api/user'
+import { useSystemConfig } from '@/composables/useSystemConfig'
 import type { User } from '@/api/user/types'
 
 const { t } = useI18n()
+const { currency } = useSystemConfig()
 
 const props = defineProps<{
   visible: boolean
@@ -29,18 +31,18 @@ const quotaAmount = ref(0)
 const useRawQuota = ref(false)
 const rawQuota = ref(0)
 
-// 金额 ↔ 原生额度转换（500000 原生 = $1）
-const QUOTA_PER_DOLLAR = 500000
+// quotaPerUnit 从系统货币配置获取（与全项目 currency.ts / TokenMutateDrawer 一致）
+const quotaPerUnit = computed(() => currency.value.quotaPerUnit)
 
 const displayQuota = computed({
   get: () => useRawQuota.value ? rawQuota.value : quotaAmount.value,
   set: (val: number) => {
     if (useRawQuota.value) {
       rawQuota.value = val
-      quotaAmount.value = Math.floor(val / QUOTA_PER_DOLLAR)
+      quotaAmount.value = Math.floor(val / quotaPerUnit.value)
     } else {
       quotaAmount.value = val
-      rawQuota.value = val * QUOTA_PER_DOLLAR
+      rawQuota.value = val * quotaPerUnit.value
     }
   },
 })
@@ -61,7 +63,7 @@ async function handleSubmit(): Promise<void> {
   if (!props.user) return
   submitting.value = true
   try {
-    const quota = useRawQuota.value ? rawQuota.value : quotaAmount.value * QUOTA_PER_DOLLAR
+    const quota = useRawQuota.value ? rawQuota.value : quotaAmount.value * quotaPerUnit.value
     await manageUserQuota({
       userId: props.user.id,
       quota,
@@ -130,7 +132,7 @@ async function handleSubmit(): Promise<void> {
         :label="t('user.quota.preview')"
       >
         <span style="font-size: var(--ys-font-size-sm); color: var(--el-text-color-secondary)">
-          ≈ ${{ (rawQuota / QUOTA_PER_DOLLAR).toFixed(2) }}
+          ≈ ${{ (rawQuota / quotaPerUnit).toFixed(2) }}
         </span>
       </el-form-item>
     </el-form>

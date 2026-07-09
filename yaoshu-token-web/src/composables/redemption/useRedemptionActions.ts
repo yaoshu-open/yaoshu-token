@@ -110,11 +110,34 @@ export function useRedemptionActions(refreshFn: () => Promise<void> | void) {
     }
   }
 
+  async function handleBatchDelete(ids: number[]): Promise<void> {
+    if (ids.length === 0) return
+    try {
+      await ElMessageBox.confirm(
+        t('redemption.confirm.batchDelete', { count: ids.length }),
+        t('common.warning'),
+        { type: 'warning' }
+      )
+      actionLoading.value = true
+      // API 无批量删除接口，逐条删除
+      for (const id of ids) {
+        await deleteRedemption(id)
+      }
+      ElMessage.success(t('redemption.actions.batchDeleteSuccess'))
+      await refreshFn()
+    } catch (e) {
+      if (e !== 'cancel') ElMessage.error(t('redemption.actions.batchDeleteFailed'))
+    } finally {
+      actionLoading.value = false
+    }
+  }
+
   return {
     actionLoading,
     handleCreate,
     handleUpdate,
     handleDelete,
+    handleBatchDelete,
     handleClearInvalid,
     handleToggleStatus,
   }

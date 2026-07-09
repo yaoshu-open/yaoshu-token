@@ -2,7 +2,7 @@
 /**
  * 嵌入钱包页，展示用户当前订阅、计费偏好选择器和可用套餐网格。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
@@ -216,6 +216,22 @@ function handlePurchaseSuccess(): void {
 
 onMounted(() => {
   loadData()
+})
+
+// 在线支付（Stripe/Creem/Epay 等）跳转外部页面，用户返回时自动刷新数据
+function handleVisibilityChange(): void {
+  if (!document.hidden) {
+    loadData()
+    emit('purchase-success')
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 

@@ -580,7 +580,9 @@
       "title": "筛选条件",
       "timeRange": "时间范围",
       "granularity": "时间粒度",
-      "reset": "重置"
+      "reset": "重置",
+      "username": "用户名",
+      "usernamePlaceholder": "用户名"
     }
   },
   "dashboard": {
@@ -1248,11 +1250,20 @@
       "disableFailed": "禁用失败",
       "alreadyUsed": "已使用的兑换码无法修改",
       "copySuccess": "已复制到剪贴板",
-      "copyFailed": "复制失败"
+      "copyFailed": "复制失败",
+      "batchDelete": "批量删除",
+      "batchDeleteSuccess": "批量删除成功",
+      "batchDeleteFailed": "批量删除失败",
+      "batchCopy": "批量复制",
+      "batchCopySuccess": "已复制 {count} 个兑换码"
     },
     "confirm": {
       "delete": "确定删除兑换码「{name}」吗？",
-      "clearInvalid": "确定清理所有失效兑换码吗？此操作不可撤销。"
+      "clearInvalid": "确定清理所有失效兑换码吗？此操作不可撤销。",
+      "batchDelete": "确定删除选中的 {count} 个兑换码吗？此操作不可撤销。"
+    },
+    "batch": {
+      "selectedCount": "已选 {count} 项"
     }
   },
   "user": {

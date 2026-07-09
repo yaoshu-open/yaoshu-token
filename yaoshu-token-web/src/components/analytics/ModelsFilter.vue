@@ -17,7 +17,7 @@ import {
 } from 'element-plus'
 import { Filter } from '@element-plus/icons-vue'
 import { TIME_GRANULARITY_OPTIONS } from '@/api/dashboard/constants'
-import type { DashboardFilters, TimeGranularity } from '@/api/dashboard/types'
+import type { DashboardFilters } from '@/api/dashboard/types'
 
 const props = defineProps<{
   filters: DashboardFilters
@@ -31,6 +31,12 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const visible = ref(false)
 const draft = ref<DashboardFilters>({ ...props.filters })
+
+// 日期选择器默认时间：起始 00:00:00，结束 23:59:59（确保结束日期当天数据被包含）
+const defaultTime: [Date, Date] = [
+  new Date(2000, 0, 1, 0, 0, 0),
+  new Date(2000, 0, 1, 23, 59, 59),
+]
 
 watch(visible, (open) => {
   if (open) draft.value = { ...props.filters }
@@ -46,21 +52,22 @@ function handleReset() {
   visible.value = false
 }
 
-// DatePicker 'x' value-format 返回毫秒字符串，需转为秒
-function dateRangeToTimestamps(range: [string, string] | null): {
+// Date 对象 -> 秒级时间戳
+function dateRangeToTimestamps(range: [Date, Date] | null): {
   start_timestamp?: number
   end_timestamp?: number
 } {
   if (!range || range.length !== 2) return { start_timestamp: undefined, end_timestamp: undefined }
   return {
-    start_timestamp: Math.floor(Number(range[0]) / 1000),
-    end_timestamp: Math.floor(Number(range[1]) / 1000),
+    start_timestamp: Math.floor(range[0].getTime() / 1000),
+    end_timestamp: Math.floor(range[1].getTime() / 1000),
   }
 }
 
-function timestampsToDateRange(filters: DashboardFilters): [string, string] | null {
+// 秒级时间戳 -> Date 对象
+function timestampsToDateRange(filters: DashboardFilters): [Date, Date] | null {
   if (!filters.start_timestamp || !filters.end_timestamp) return null
-  return [String(filters.start_timestamp * 1000), String(filters.end_timestamp * 1000)]
+  return [new Date(filters.start_timestamp * 1000), new Date(filters.end_timestamp * 1000)]
 }
 </script>
 
@@ -82,12 +89,12 @@ function timestampsToDateRange(filters: DashboardFilters): [string, string] | nu
       <ElFormItem :label="t('analytics.filter.timeRange')">
         <ElDatePicker
           type="datetimerange"
-          value-format="x"
           style="width: 100%"
           :start-placeholder="t('analytics.filter.timeRange')"
           :end-placeholder="t('analytics.filter.timeRange')"
+          :default-time="defaultTime"
           :model-value="timestampsToDateRange(draft)"
-          @update:model-value="(v: [string, string] | null) => {
+          @update:model-value="(v: [Date, Date] | null) => {
             const ts = dateRangeToTimestamps(v)
             draft = { ...draft, ...ts }
           }"
@@ -95,7 +102,7 @@ function timestampsToDateRange(filters: DashboardFilters): [string, string] | nu
       </ElFormItem>
       <ElFormItem :label="t('analytics.filter.granularity')">
         <ElSelect
-          v-model="draft.time_granularity as TimeGranularity | undefined"
+          v-model="draft.time_granularity"
           style="width: 100%"
         >
           <ElOption
@@ -106,10 +113,10 @@ function timestampsToDateRange(filters: DashboardFilters): [string, string] | nu
           />
         </ElSelect>
       </ElFormItem>
-      <ElFormItem v-if="isAdmin" label="username">
+      <ElFormItem v-if="isAdmin" :label="t('analytics.filter.username')">
         <ElInput
-          v-model="draft.username as string"
-          placeholder="username"
+          v-model="draft.username"
+          :placeholder="t('analytics.filter.usernamePlaceholder')"
           clearable
         />
       </ElFormItem>

@@ -73,6 +73,12 @@ function resetFilters() {
   applyFilters(reset)
 }
 
+// 统一刷新：header 数据 + 模型/用户分析
+function handleRefresh() {
+  refetchHeader()
+  applyFilters(filters.value)
+}
+
 function handlePreferencesChange(next: DashboardChartPreferences) {
   setPreferences(next)
   // 偏好变更后重置 filters 触发 refetch
@@ -106,31 +112,31 @@ void modelRawData
     <DashboardHeader
       :user-info="userInfo"
       :loading="headerLoading"
-      @refresh="() => { refetchHeader(); applyFilters(filters) }"
-    />
-
-    <div class="analytics-page__toolbar">
-      <div class="analytics-page__toolbar-actions">
-        <ModelsChartPreferences
-          :preferences="preferences"
-          @update:preferences="handlePreferencesChange"
-        />
-        <ModelsFilter
-          :filters="filters"
-          :is-admin="isAdmin"
-          @update:filters="applyFilters"
-          @reset="resetFilters"
-        />
-        <el-button
-          size="small"
-          :icon="Refresh"
-          :loading="modelLoading || userLoading"
-          @click="applyFilters(filters)"
-        >
-          {{ t('common.refresh') }}
-        </el-button>
-      </div>
-    </div>
+      @refresh="handleRefresh"
+    >
+      <template #actions>
+        <div class="analytics-page__header-actions">
+          <ModelsChartPreferences
+            :preferences="preferences"
+            @update:preferences="handlePreferencesChange"
+          />
+          <ModelsFilter
+            :filters="filters"
+            :is-admin="isAdmin"
+            @update:filters="applyFilters"
+            @reset="resetFilters"
+          />
+          <el-button
+            size="small"
+            :icon="Refresh"
+            :loading="modelLoading || userLoading"
+            @click="handleRefresh"
+          >
+            {{ t('common.refresh') }}
+          </el-button>
+        </div>
+      </template>
+    </DashboardHeader>
 
     <el-tabs v-model="activeTab" class="analytics-page__tabs">
       <!-- 模型分析板块（所有用户） -->
@@ -217,13 +223,9 @@ void modelRawData
   gap: $spacing-6;
   padding: $spacing-8 $spacing-6;
 
-  &__toolbar {
+  &__header-actions {
     display: flex;
-    justify-content: flex-end;
-  }
-
-  &__toolbar-actions {
-    display: flex;
+    flex-shrink: 0;
     gap: $spacing-2;
     align-items: center;
   }

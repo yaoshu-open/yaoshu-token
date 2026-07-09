@@ -355,16 +355,8 @@ onMounted(async () => {
               value="CNY"
             />
             <ElOption
-              label="NPO ($N)"
-              value="NPO"
-            />
-            <ElOption
-              label="NPG (₦)"
-              value="NPG"
-            />
-            <ElOption
               label="Custom (¤)"
-              value="Custom"
+              value="CUSTOM"
             />
           </ElSelect>
         </ElFormItem>
