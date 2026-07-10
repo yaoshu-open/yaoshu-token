@@ -40,7 +40,7 @@
 
 Yaoshu Token (爻枢 Token) is inspired by [new-api](https://github.com/Calcium-Ion/new-api) and independently rebuilt with Java + Vue3. It is an AI API gateway that aggregates 40+ upstream AI providers behind a unified API, providing user management, billing, rate limiting, and an admin dashboard.
 
-**Tech Stack**: Java 17 + SpringBoot 3.3 + MyBatis-Plus 3.5.14 + [yue-library](https://yue.library.dev)
+**Tech Stack**: Java 17 + SpringBoot 3.3 + MyBatis-Plus 3.5.14 + [yue-library](https://github.com/yl-yue/yue-library)
 
 > [!IMPORTANT]
 > - This project is intended solely for lawful and authorized AI API gateway, organization-level authentication, multi-model management, usage analytics, cost accounting, and private deployment scenarios.

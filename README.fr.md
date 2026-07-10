@@ -43,7 +43,7 @@
 
 Yaoshu Token（爻枢 Token）est inspiré par [new-api](https://github.com/Calcium-Ion/new-api) et entièrement reconstruit de manière indépendante en Java + Vue3. C'est une passerelle API IA qui agrège plus de 40 fournisseurs IA en amont derrière une API unifiée.
 
-**Stack technique** : Java 17 + SpringBoot 3.3 + MyBatis-Plus 3.5.14 + [yue-library](https://yue.library.dev)
+**Stack technique** : Java 17 + SpringBoot 3.3 + MyBatis-Plus 3.5.14 + [yue-library](https://github.com/yl-yue/yue-library)
 
 > [!IMPORTANT]
 > Ce projet est destiné exclusivement aux scénarios de passerelle API IA autorisée, d'authentification organisationnelle, de gestion multi-modèles, d'analyse d'utilisation, de comptabilité des coûts et de déploiement privé. Les utilisateurs doivent obtenir légalement les clés API, comptes et autorisations en amont et se conformer aux conditions de service applicables.

@@ -40,7 +40,7 @@
 
 爻樞 Token 受 [new-api](https://github.com/Calcium-Ion/new-api) 啟發，已完全獨立重構為 Java + Vue3 實現。聚合 40+ AI 上游供應商，提供統一 API、使用者管理、計費、限流和管理後台。
 
-**技術棧**：Java 17 + SpringBoot 3.3 + MyBatis-Plus 3.5.14 + [yue-library](https://yue.library.dev)
+**技術棧**：Java 17 + SpringBoot 3.3 + MyBatis-Plus 3.5.14 + [yue-library](https://github.com/yl-yue/yue-library)
 
 > [!IMPORTANT]
 > - 本專案僅面向合法授權的 AI API 閘道、組織內部鑑權、多模型管理、用量統計、成本核算和私有化部署場景。
