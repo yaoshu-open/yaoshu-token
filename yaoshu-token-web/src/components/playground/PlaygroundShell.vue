@@ -95,7 +95,6 @@ const emit = defineEmits<{
   'abort-comparison': []
 
   // Conversation
-  'regenerate': []
   'clear': []
   'export': []
   'update:stream': [value: boolean]
@@ -212,7 +211,6 @@ defineExpose({ fillEditor })
             :stream-enabled="props.config.stream"
             :context-tokens="props.contextTokens"
             :max-context="props.maxContext"
-            @regenerate="emit('regenerate')"
             @clear="emit('clear')"
             @export="emit('export')"
             @update:stream="(v: boolean) => emit('update:stream', v)"

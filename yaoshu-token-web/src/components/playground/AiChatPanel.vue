@@ -17,7 +17,7 @@ import {
 } from 'vue-element-plus-x'
 import { MarkdownRender } from 'markstream-vue'
 import dayjs from 'dayjs'
-import type { PlaygroundBubbleItem } from '@/composables/playground/useBubbleList'
+import { setThinkingExpanded, type PlaygroundBubbleItem } from '@/composables/playground/useBubbleList'
 import { createSuggestionList } from '@/views/playground/constants'
 import RoleSelector from './RoleSelector.vue'
 import { useMessageWindow } from '@/composables/playground/useMessageWindow'
@@ -352,12 +352,14 @@ const lastItemKey = computed(() => props.items[props.items.length - 1]?.key ?? '
         >
           <span>system</span>
         </div>
-        <!-- 推理过程（Thinking 折叠） -->
+        <!-- 推理过程（Thinking 受控折叠，状态持久化在 useBubbleList 模块级 thinkingExpandedState） -->
         <Thinking
           v-if="item.reasoningContent"
           :content="item.reasoningContent"
           :status="item.isReasoningStreaming ? 'thinking' : 'end'"
           :auto-collapse="!item.isReasoningStreaming"
+          :model-value="item.thinkingExpanded"
+          @update:model-value="setThinkingExpanded(item.key, $event)"
         />
 
         <!-- 正文 Markdown 流式渲染 -->
@@ -844,25 +846,26 @@ const lastItemKey = computed(() => props.items[props.items.length - 1]?.key ?? '
     display: flex;
     gap: var(--ys-spacing-1);
     align-items: center;
-    margin-top: 4px;
-    opacity: 0;
-    transition: opacity 0.2s;
-
-    .ai-chat-panel__bubble-content:hover & {
-      opacity: 1;
-    }
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px solid var(--el-border-color-extra-light);
   }
 
   &__timestamp {
-    margin-right: 4px;
+    margin-right: 2px;
     font-size: var(--ys-font-size-xs);
-    color: var(--el-text-color-placeholder);
+    font-weight: 500;
+    color: var(--el-text-color-secondary);
   }
 
   &__usage {
-    margin-right: 4px;
+    margin-right: var(--ys-spacing-1);
+    padding: 1px 6px;
     font-size: var(--ys-font-size-xs);
-    color: var(--el-text-color-placeholder);
+    font-weight: 500;
+    color: var(--el-color-primary);
+    background: var(--ys-bg-brand-soft);
+    border-radius: 10px;
   }
 
   &__action-btn {
@@ -875,18 +878,30 @@ const lastItemKey = computed(() => props.items[props.items.length - 1]?.key ?? '
     font-size: var(--ys-font-size-base);
     color: var(--el-text-color-secondary);
     cursor: pointer;
-    background: transparent;
-    border: 0;
-    border-radius: var(--el-border-radius-small);
-    transition: all 0.2s;
+    background: var(--el-fill-color);
+    border: 1px solid transparent;
+    border-radius: var(--el-border-radius-base);
+    transition: all 0.15s ease;
 
     &:hover {
       color: var(--el-color-primary);
-      background: var(--el-fill-color-light);
+      background: var(--ys-bg-brand-soft);
+      border-color: var(--el-color-primary-light-5);
+      transform: translateY(-1px);
     }
 
-    &--danger:hover {
-      color: var(--el-color-danger);
+    &:active {
+      transform: translateY(0);
+    }
+
+    &--danger {
+      color: var(--el-text-color-secondary);
+
+      &:hover {
+        color: var(--el-color-danger);
+        background: var(--el-color-danger-light-9);
+        border-color: var(--el-color-danger-light-5);
+      }
     }
   }
 

@@ -4,7 +4,7 @@
  * 将 @ai-sdk/vue Chat 的 UIMessage[] 转换为 vue-element-plus-x BubbleList 所需的格式，
  * 并提取 reasoning / text parts 供 Thinking 组件和 MarkdownRender 消费。
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Ref } from 'vue'
 import type { UIMessage } from 'ai'
 import type { MessageUsageInfo } from './useAiChat'
@@ -57,10 +57,25 @@ export interface PlaygroundBubbleItem extends BubbleListItemProps {
   currentVersion?: number
   /** S7: 引用来源（搜索/工具调用结果） */
   sources?: PlaygroundSource[]
+  /** Thinking 组件展开状态（受控模式，由模块级 thinkingExpandedState 持久化） */
+  thinkingExpanded?: boolean
 }
 
 // UIMessage 无 createdAt 字段，运行时首次见到消息 id 时记录近似时间戳
 const messageTimestamps = new Map<string, number>()
+
+// Thinking 展开状态持久化（模块级，组件卸载/虚拟滚动 DOM 回收不丢失）
+const thinkingExpandedState = ref<Record<string, boolean>>({})
+
+/** 查询某条消息的 Thinking 展开状态（默认折叠） */
+export function isThinkingExpanded(key: string): boolean {
+  return thinkingExpandedState.value[key] ?? false
+}
+
+/** 设置某条消息的 Thinking 展开状态 */
+export function setThinkingExpanded(key: string, expanded: boolean): void {
+  thinkingExpandedState.value = { ...thinkingExpandedState.value, [key]: expanded }
+}
 
 export function useBubbleList(
   messages: Ref<UIMessage[]>,
@@ -141,14 +156,17 @@ export function useBubbleList(
         usage: msg.role === 'assistant' ? usageMap?.value?.[msg.id] : undefined,
         versions,
         currentVersion: currentVersionIdx,
-        sources: undefined
+        sources: undefined,
+        // Thinking 受控状态（模块级持久化，虚拟滚动 DOM 重建后恢复）
+        thinkingExpanded: isThinkingExpanded(msg.id)
       }
     })
   })
 
-  /** 清空时间戳缓存（清空对话时调用） */
+  /** 清空时间戳缓存 + Thinking 展开状态（清空对话时调用） */
   function clearTimestamps(): void {
     messageTimestamps.clear()
+    thinkingExpandedState.value = {}
   }
 
   return { bubbleItems, clearTimestamps }

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * ConversationToolbar — 对话操作栏（重新生成 / 清空 / 导出 / 流式开关）。
- * 从原 ai-playground.vue 工具栏拆出对话相关操作。
+ * ConversationToolbar — 对话操作栏（清空 / 导出 / 流式开关）。
+ * 重新生成功能由每条 assistant 消息气泡下方的按钮提供（逐条重发）。
  */
-import { RefreshRight, Delete, Download } from '@element-plus/icons-vue'
+import { Delete, Download } from '@element-plus/icons-vue'
 import ContextUsageIndicator from './ContextUsageIndicator.vue'
 
 interface Props {
@@ -16,7 +16,6 @@ interface Props {
 
 defineProps<Props>()
 const emit = defineEmits<{
-  regenerate: []
   clear: []
   export: []
   'update:stream': [value: boolean]
@@ -26,18 +25,6 @@ const emit = defineEmits<{
 <template>
   <div class="conversation-toolbar">
     <div class="conversation-toolbar__actions">
-      <el-tooltip
-        :content="$t('playground.actions.regenerate')"
-        placement="bottom"
-      >
-        <el-button
-          size="small"
-          :icon="RefreshRight"
-          :disabled="isGenerating || !hasMessages"
-          @click="emit('regenerate')"
-        />
-      </el-tooltip>
-
       <el-tooltip
         :content="$t('playground.toolbar.clear')"
         placement="bottom"

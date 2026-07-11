@@ -18,34 +18,40 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
-export function loadConfig(): Partial<PlaygroundConfig> {
+// localStorage key 按用户隔离：`{baseKey}:{userId}`，防多账号切换串号
+function userKey(base: string, userId: string): string {
+  return `${base}:${userId}`
+}
+
+export function loadConfig(userId: string): Partial<PlaygroundConfig> {
   return safeParse<Partial<PlaygroundConfig>>(
-    localStorage.getItem(STORAGE_KEYS.CONFIG),
+    localStorage.getItem(userKey(STORAGE_KEYS.CONFIG, userId)),
     {}
   )
 }
 
-export function saveConfig(config: Partial<PlaygroundConfig>): void {
+export function saveConfig(userId: string, config: Partial<PlaygroundConfig>): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(config))
+    localStorage.setItem(userKey(STORAGE_KEYS.CONFIG, userId), JSON.stringify(config))
   } catch (err) {
     console.error('[playground] saveConfig failed:', err)
   }
 }
 
-export function loadParameterEnabled(): Partial<ParameterEnabled> {
+export function loadParameterEnabled(userId: string): Partial<ParameterEnabled> {
   return safeParse<Partial<ParameterEnabled>>(
-    localStorage.getItem(STORAGE_KEYS.PARAMETER_ENABLED),
+    localStorage.getItem(userKey(STORAGE_KEYS.PARAMETER_ENABLED, userId)),
     {}
   )
 }
 
 export function saveParameterEnabled(
+  userId: string,
   parameterEnabled: Partial<ParameterEnabled>
 ): void {
   try {
     localStorage.setItem(
-      STORAGE_KEYS.PARAMETER_ENABLED,
+      userKey(STORAGE_KEYS.PARAMETER_ENABLED, userId),
       JSON.stringify(parameterEnabled)
     )
   } catch (err) {
@@ -53,14 +59,14 @@ export function saveParameterEnabled(
   }
 }
 
-export function loadMessages(): Message[] | null {
+export function loadMessages(userId: string): Message[] | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.MESSAGES)
+    const raw = localStorage.getItem(userKey(STORAGE_KEYS.MESSAGES, userId))
     if (!raw) return null
     const parsed = safeParse<unknown>(raw, null)
     if (!Array.isArray(parsed)) return null
     const sanitized = sanitizeMessagesOnLoad(parsed as Message[])
-    if (sanitized !== parsed) saveMessages(sanitized)
+    if (sanitized !== parsed) saveMessages(userId, sanitized)
     return sanitized
   } catch (err) {
     console.error('[playground] loadMessages failed:', err)
@@ -68,19 +74,20 @@ export function loadMessages(): Message[] | null {
   }
 }
 
-export function saveMessages(messages: Message[]): void {
+export function saveMessages(userId: string, messages: Message[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages))
+    localStorage.setItem(userKey(STORAGE_KEYS.MESSAGES, userId), JSON.stringify(messages))
   } catch (err) {
     console.error('[playground] saveMessages failed:', err)
   }
 }
 
-export function clearPlaygroundData(): void {
+/** 清理指定用户的 Playground 持久化数据（登出时调用） */
+export function clearPlaygroundData(userId: string): void {
   try {
-    localStorage.removeItem(STORAGE_KEYS.CONFIG)
-    localStorage.removeItem(STORAGE_KEYS.PARAMETER_ENABLED)
-    localStorage.removeItem(STORAGE_KEYS.MESSAGES)
+    localStorage.removeItem(userKey(STORAGE_KEYS.CONFIG, userId))
+    localStorage.removeItem(userKey(STORAGE_KEYS.PARAMETER_ENABLED, userId))
+    localStorage.removeItem(userKey(STORAGE_KEYS.MESSAGES, userId))
   } catch (err) {
     console.error('[playground] clearPlaygroundData failed:', err)
   }

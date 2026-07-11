@@ -102,7 +102,7 @@ async function handleDelete(): Promise<void> {
     ElMessage.success(t('profile.accountDeleted'))
     authStore.clearAuthToken()
     emit('update:modelValue', false)
-    router.push('/login')
+    router.push('/sign-in')
   } catch {
     // 错误由 request 拦截器处理
   } finally {

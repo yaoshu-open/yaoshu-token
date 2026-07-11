@@ -10,7 +10,6 @@ import {
   DEFAULT_CONFIG,
   DEFAULT_PARAMETER_ENABLED
 } from '@/views/playground/constants'
-import { clearPlaygroundData } from '@/views/playground/lib/storage'
 import type {
   PlaygroundConfig,
   ParameterEnabled
@@ -132,13 +131,11 @@ async function handleReset(): Promise<void> {
         type: 'warning'
       }
     )
-    clearPlaygroundData()
     emit('reset', { resetMessages: true })
     ElMessage.success(t('playground.configManager.resetAllSuccess'))
     void result
   } catch {
     // 用户选了「仅重置配置」+ cancel
-    clearPlaygroundData()
     emit('reset', { resetMessages: false })
     ElMessage.success(t('playground.configManager.resetConfigSuccess'))
   }

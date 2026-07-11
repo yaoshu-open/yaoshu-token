@@ -24,14 +24,14 @@ import {
   saveParameterEnabled
 } from '@/views/playground/lib/storage'
 
-export function usePlaygroundState() {
+export function usePlaygroundState(userId: string) {
   const config = ref<PlaygroundConfig>({
     ...DEFAULT_CONFIG,
-    ...loadConfig()
+    ...loadConfig(userId)
   })
   const parameterEnabled = ref<ParameterEnabled>({
     ...DEFAULT_PARAMETER_ENABLED,
-    ...loadParameterEnabled()
+    ...loadParameterEnabled(userId)
   })
   const models = ref<ModelOption[]>([])
   const groups = ref<GroupOption[]>([])
@@ -40,14 +40,14 @@ export function usePlaygroundState() {
   watch(
     config,
     (next) => {
-      saveConfig(next)
+      saveConfig(userId, next)
     },
     { deep: true }
   )
   watch(
     parameterEnabled,
     (next) => {
-      saveParameterEnabled(next)
+      saveParameterEnabled(userId, next)
     },
     { deep: true }
   )

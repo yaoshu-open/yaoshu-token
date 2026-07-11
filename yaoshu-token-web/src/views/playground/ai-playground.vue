@@ -84,8 +84,9 @@ const loadModelsAndGroups = async (): Promise<void> => {
     state.models.value.length > 0 &&
     !state.models.value.find((m) => m.value === state.config.value.model)
   ) {
-    const first = state.models.value[0]
-    if (first) state.updateConfig('model', first.value)
+    // 默认选最便宜的模型：查 Pricing API 交叉比对 modelRatio
+    const cheapest = await pickCheapestModel(state.models.value)
+    state.updateConfig('model', cheapest)
   }
   if (
     state.groups.value.length > 0 &&
@@ -93,6 +94,55 @@ const loadModelsAndGroups = async (): Promise<void> => {
   ) {
     const first = state.groups.value[0]
     if (first) state.updateConfig('group', first.value)
+  }
+}
+
+/**
+ * 从可用模型列表中选最便宜的对话模型（按 Pricing API 的 modelRatio 升序）。
+ * 排除图片/embedding/语音等非对话模型，仅考虑 quotaType=0（按量计费）的文本对话模型。
+ * Pricing API 无覆盖或匹配失败时 fallback 到列表第一个。
+ */
+async function pickCheapestModel(models: { label: string; value: string }[]): Promise<string> {
+  const fallback = models[0]?.value ?? ''
+  if (models.length === 0) return fallback
+  try {
+    const { getPricing } = await import('@/api/pricing')
+    const data = await getPricing()
+    if (!data?.pricing?.length) return fallback
+    // 非对话模型标签关键词（tags 或 endpoints 含这些词的排除）
+    const EXCLUDE_TAGS = ['embedding', 'image', 'tts', 'stt', 'rerank', 'moderation']
+    const EXCLUDE_ENDPOINTS = ['embeddings', 'image-generation', 'audio', 'rerank']
+    function isChatModel(p: { tags?: string; supportedEndpointTypes?: string[] }): boolean {
+      const tags = (p.tags ?? '').toLowerCase()
+      const endpoints = (p.supportedEndpointTypes ?? []).join(' ').toLowerCase()
+      const excludeStr = [...EXCLUDE_TAGS, ...EXCLUDE_ENDPOINTS]
+      return !excludeStr.some(kw => tags.includes(kw) || endpoints.includes(kw))
+    }
+    // 构建 modelName → modelRatio 映射（仅按量计费对话模型）
+    const ratioMap = new Map<string, number>()
+    for (const p of data.pricing) {
+      if (
+        p.quotaType === 0 &&
+        typeof p.modelRatio === 'number' &&
+        p.modelRatio > 0 &&
+        isChatModel(p)
+      ) {
+        ratioMap.set(p.modelName, p.modelRatio)
+      }
+    }
+    // 在可用模型中找 modelRatio 最低的
+    let best = fallback
+    let bestRatio = Infinity
+    for (const m of models) {
+      const ratio = ratioMap.get(m.value)
+      if (ratio !== undefined && ratio < bestRatio) {
+        bestRatio = ratio
+        best = m.value
+      }
+    }
+    return best
+  } catch {
+    return fallback
   }
 }
 
@@ -427,7 +477,6 @@ watch(error, (err) => {
       @open-debug="debugDrawerOpen = true"
       @config-import="handleConfigImport"
       @config-reset="handleConfigReset"
-      @regenerate="handleRegenerate"
       @clear="handleClear"
       @export="handleExportChat"
       @update:stream="(v: boolean) => state.updateConfig('stream', v)"

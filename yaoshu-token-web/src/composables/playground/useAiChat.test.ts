@@ -135,7 +135,8 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/store/modules/auth', () => ({
   useAuthStore: () => ({
-    clearAuthToken: vi.fn()
+    clearAuthToken: vi.fn(),
+    userInfo: { id: 'test-user' }
   })
 }))
 
@@ -205,11 +206,11 @@ describe('useAiChat', () => {
       const { sendMessage, clearMessages } = useAiChat()
 
       await sendMessage('Hello')
-      // watch 会将 messages 写入 localStorage
-      expect(localStorage.getItem('playground_messages')).not.toBeNull()
+      // watch 会将 messages 写入 localStorage（key 按用户隔离）
+      expect(localStorage.getItem('playground_messages:test-user')).not.toBeNull()
 
       clearMessages()
-      expect(localStorage.getItem('playground_messages')).toBeNull()
+      expect(localStorage.getItem('playground_messages:test-user')).toBeNull()
     })
   })
 

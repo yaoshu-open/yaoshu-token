@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/api/user'
 import * as authApi from '@/api/auth'
 import type { LoginPayload } from '@/api/auth/types'
 import type { UserInfo } from '@/api/user/types'
+import { disposeChat } from '@/composables/playground/useAiChat'
 
 export type { UserInfo }
 
@@ -87,8 +88,12 @@ export const useAuthStore = defineStore('auth', () => {
     clearAuthToken()
   }
 
-  // 清退本地会话（logout 内部 + OAuth 流程 resetSession 复用）
+  // 清退本地会话（logout 内部 + 401 拦截器 + OAuth 流程 resetSession 复用）
+  // 统一在此销毁 Playground Chat 单例（中断 SSE + 清理持久化），避免各调用方遗漏
   function clearAuthToken(): void {
+    // disposeChat 必须在 token/userInfo 清空前调用（内部读取 chatInstance.userId）
+    // 防递归：disposeChat 调 clearPlaygroundData 不触发 onUnauthorized（scope.stop 中断 SSE）
+    disposeChat()
     token.value = ''
     userInfo.value = null
     userInfoError.value = null

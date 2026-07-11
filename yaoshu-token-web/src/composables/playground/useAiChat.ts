@@ -14,10 +14,13 @@
  * - UIMessage 标准格式（parts 数组，支持 text/reasoning/tool/source）
  * - chat.regenerate() 官方重发生
  * - chat.stop() 官方中断
+ * - 模块级单例（effectScope detached）：组件卸载不销毁，流式中离开页面 SSE 不中断、消息持续持久化
+ * - localStorage 按用户隔离（key 挂载 userId）
  */
 import { Chat } from '@ai-sdk/vue'
 import type { UIMessage } from 'ai'
-import { computed, ref, watch } from 'vue'
+import { computed, effectScope, ref, watch } from 'vue'
+import type { EffectScope } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlaygroundState } from './usePlaygroundState'
 import { useCustomRequest } from './useCustomRequest'
@@ -28,10 +31,8 @@ import {
 } from './openai-chat-transport'
 import { useAuthStore } from '@/store/modules/auth'
 import { STORAGE_KEYS } from '@/views/playground/constants'
+import { clearPlaygroundData } from '@/views/playground/lib/storage'
 import type { ChatCompletionRequest } from '@/api/playground/types'
-
-const MESSAGES_STORAGE_KEY = STORAGE_KEYS.MESSAGES
-const USAGE_STORAGE_KEY = STORAGE_KEYS.MESSAGES + '__usage'
 
 /** 单条消息的 token 用量与耗时 */
 export interface MessageUsageInfo {
@@ -42,9 +43,18 @@ export interface MessageUsageInfo {
   duration?: number
 }
 
-function loadStoredMessages(): UIMessage[] {
+/** localStorage key 生成（按用户隔离） */
+function messagesKey(userId: string): string {
+  return `${STORAGE_KEYS.MESSAGES}:${userId}`
+}
+
+function usageKey(userId: string): string {
+  return `${STORAGE_KEYS.MESSAGES}:${userId}__usage`
+}
+
+function loadStoredMessages(userId: string): UIMessage[] {
   try {
-    const stored = localStorage.getItem(MESSAGES_STORAGE_KEY)
+    const stored = localStorage.getItem(messagesKey(userId))
     if (!stored) return []
     const messages = JSON.parse(stored) as UIMessage[]
     // 防御：流式中途刷新会导致 part.state停留在 'streaming'，加载后强制标记为已完成
@@ -67,26 +77,26 @@ function loadStoredMessages(): UIMessage[] {
   }
 }
 
-function saveMessages(messages: UIMessage[]): void {
+function saveStoredMessages(userId: string, messages: UIMessage[]): void {
   try {
-    localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(messages))
+    localStorage.setItem(messagesKey(userId), JSON.stringify(messages))
   } catch {
     // localStorage 写入失败：静默
   }
 }
 
-function loadStoredUsage(): Record<string, MessageUsageInfo> {
+function loadStoredUsage(userId: string): Record<string, MessageUsageInfo> {
   try {
-    const stored = localStorage.getItem(USAGE_STORAGE_KEY)
+    const stored = localStorage.getItem(usageKey(userId))
     return stored ? (JSON.parse(stored) as Record<string, MessageUsageInfo>) : {}
   } catch {
     return {}
   }
 }
 
-function saveUsage(usage: Record<string, MessageUsageInfo>): void {
+function saveStoredUsage(userId: string, usage: Record<string, MessageUsageInfo>): void {
   try {
-    localStorage.setItem(USAGE_STORAGE_KEY, JSON.stringify(usage))
+    localStorage.setItem(usageKey(userId), JSON.stringify(usage))
   } catch {
     // localStorage 写入失败：静默
   }
@@ -97,10 +107,19 @@ export interface UseAiChatOptions {
   imageEnabled?: () => boolean
 }
 
-export function useAiChat(options: UseAiChatOptions = {}) {
-  const state = usePlaygroundState()
-  const custom = useCustomRequest()
-  const debug = useDebugPanel()
+// ============================================================================
+// 模块级单例：Chat 实例生命周期独立于路由组件
+// effectScope(true) = detached scope，组件卸载不停止其内部 watch/effect
+// ============================================================================
+let chatScope: EffectScope | null = null
+let chatInstance: ReturnType<typeof createChatInstance> | null = null
+
+// 可更新的 options 引用（组件每次挂载调用 useAiChat 时刷新，避免单例持有旧组件闭包）
+let currentImageUrls: (() => string[]) | null = null
+let currentImageEnabled: (() => boolean) | null = null
+
+/** 创建 Chat 实例（在 detached effectScope 内执行） */
+function createChatInstance(userId: string) {
   const router = useRouter()
   const authStore = useAuthStore()
 
@@ -110,8 +129,12 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     router.push(`/sign-in?redirect=${redirect}`)
   }
 
+  const state = usePlaygroundState(userId)
+  const custom = useCustomRequest()
+  const debug = useDebugPanel()
+
   // PG-E05: 消息级 usage 缓存（key = assistant messageId），持久化到 localStorage 避免刷新/重进丢失
-  const usageMap = ref<Record<string, MessageUsageInfo>>(loadStoredUsage())
+  const usageMap = ref<Record<string, MessageUsageInfo>>(loadStoredUsage(userId))
   // 临时捕获当前请求的 usage（流式最后一个 chunk 携带）
   let pendingUsage: MessageUsageInfo | null = null
   let requestStartTime = 0
@@ -140,7 +163,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
 
   const chat = new Chat<UIMessage>({
     transport,
-    messages: loadStoredMessages(),
+    messages: loadStoredMessages(userId),
     onError: (error) => {
       debug.appendSseEvent({ raw: error.message, isError: true })
     }
@@ -171,7 +194,8 @@ export function useAiChat(options: UseAiChatOptions = {}) {
         custom.customRequestMode.value && custom.isValidJson.value
           ? custom.customRequestBody.value
           : undefined,
-      imageUrls: options.imageEnabled?.() === false ? [] : options.imageUrls?.() ?? [],
+      // 读模块级变量（最新组件实例的闭包），而非创建时的固定闭包
+      imageUrls: currentImageEnabled?.() === false ? [] : currentImageUrls?.() ?? [],
       systemPrompt: config.systemPrompt
     }
   }
@@ -253,7 +277,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
           ...usageMap.value,
           [messages.value[i].id]: info
         }
-        saveUsage(usageMap.value)
+        saveStoredUsage(userId, usageMap.value)
         break
       }
     }
@@ -271,8 +295,8 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     chat.messages = []
     usageMap.value = {}
     try {
-      localStorage.removeItem(MESSAGES_STORAGE_KEY)
-      localStorage.removeItem(USAGE_STORAGE_KEY)
+      localStorage.removeItem(messagesKey(userId))
+      localStorage.removeItem(usageKey(userId))
     } catch {
       // 静默
     }
@@ -290,10 +314,12 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     chat.messages = [...chat.messages, newMsg]
   }
 
-  // 消息持久化
-  watch(messages, (next) => saveMessages(next), { deep: true })
+  // 消息持久化（此 watch 属于 detached scope，组件卸载不停止）
+  watch(messages, (next) => saveStoredMessages(userId, next), { deep: true })
 
   return {
+    // 标识
+    userId,
     // 状态
     state,
     custom,
@@ -317,4 +343,38 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     buildBody,
     buildPreviewPayload
   }
+}
+
+/**
+ * 获取 Chat 单例（首次调用创建，后续返回缓存）。
+ * 在 detached effectScope 内创建，组件卸载不销毁——保证流式中离开页面 SSE 不中断、消息持续持久化。
+ */
+export function useAiChat(options?: UseAiChatOptions) {
+  // 更新可变依赖（每次组件挂载时刷新闭包引用，避免单例持有旧组件实例的 ref）
+  if (options?.imageUrls) currentImageUrls = options.imageUrls
+  if (options?.imageEnabled) currentImageEnabled = options.imageEnabled
+
+  if (!chatInstance) {
+    const authStore = useAuthStore()
+    const userId = String(authStore.userInfo?.id ?? 'guest')
+    chatScope = effectScope(true)
+    chatInstance = chatScope.run(() => createChatInstance(userId))!
+  }
+  return chatInstance
+}
+
+/**
+ * 销毁 Chat 单例（用户登出时调用）。
+ * 停止 detached scope（中断 SSE + 清理 watch），释放模块级引用，下次进入重建加载新用户数据。
+ */
+export function disposeChat(): void {
+  // 销毁前清理当前用户的持久化数据
+  if (chatInstance) {
+    clearPlaygroundData(chatInstance.userId)
+  }
+  chatScope?.stop()
+  chatScope = null
+  chatInstance = null
+  currentImageUrls = null
+  currentImageEnabled = null
 }
