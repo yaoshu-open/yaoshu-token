@@ -5,13 +5,28 @@ import { getCurrentUser } from '@/api/user'
 import * as authApi from '@/api/auth'
 import type { LoginPayload } from '@/api/auth/types'
 import type { UserInfo } from '@/api/user/types'
-import { disposeChat } from '@/composables/playground/useAiChat'
 
 export type { UserInfo }
 
 // login action 返回值：消费方据此决定后续 UI（跳 OTP 页 or 跳 dashboard）
 export interface LoginActionResult {
   require2fa: boolean
+}
+
+// 退出登录回调注册表（IoC 反转依赖）
+// auth 是全局核心模块，不应硬依赖任何业务模块（如 Playground）。
+// 业务模块在初始化时注册 onLogout 回调，clearAuthToken 触发时逐一调用。
+type LogoutCallback = () => void
+const logoutCallbacks: LogoutCallback[] = []
+
+/**
+ * 注册退出登录回调（业务模块调用）。
+ * 回调在 clearAuthToken 执行时被同步调用，用于清理模块级单例/缓存。
+ */
+export function registerLogoutCallback(cb: LogoutCallback): void {
+  if (!logoutCallbacks.includes(cb)) {
+    logoutCallbacks.push(cb)
+  }
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -89,11 +104,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // 清退本地会话（logout 内部 + 401 拦截器 + OAuth 流程 resetSession 复用）
-  // 统一在此销毁 Playground Chat 单例（中断 SSE + 清理持久化），避免各调用方遗漏
+  // 触发已注册的业务模块退出回调（如 Playground Chat 单例销毁），各回调独立 try-catch 互不阻塞
   function clearAuthToken(): void {
-    // disposeChat 必须在 token/userInfo 清空前调用（内部读取 chatInstance.userId）
-    // 防递归：disposeChat 调 clearPlaygroundData 不触发 onUnauthorized（scope.stop 中断 SSE）
-    disposeChat()
+    // 先触发回调（回调内可能需要读取当前 userId 等状态）
+    for (const cb of logoutCallbacks) {
+      try {
+        cb()
+      } catch {
+        // 单个回调失败不阻断退出流程
+      }
+    }
     token.value = ''
     userInfo.value = null
     userInfoError.value = null

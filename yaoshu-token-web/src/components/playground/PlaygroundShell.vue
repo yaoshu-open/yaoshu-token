@@ -93,6 +93,7 @@ const emit = defineEmits<{
   'remove-comparison-column': [model: string]
   'run-comparison': []
   'abort-comparison': []
+  'retry-comparison-column': [id: string]
 
   // Conversation
   'clear': []
@@ -252,6 +253,7 @@ defineExpose({ fillEditor })
           @remove-column="(model: string) => emit('remove-comparison-column', model)"
           @run="emit('run-comparison')"
           @abort="emit('abort-comparison')"
+          @retry-column="(id: string) => emit('retry-comparison-column', id)"
         />
       </main>
     </div>

@@ -441,6 +441,7 @@
         "remainingDaysValue": "{days} days",
         "quotaUsage": "Quota Usage",
         "planTitle": "Plan #{id}",
+        "freeTrial": "Free Trial",
         "billingStrategy": {
           "subscriptionFirst": "Subscription First",
           "walletFirst": "Wallet First",

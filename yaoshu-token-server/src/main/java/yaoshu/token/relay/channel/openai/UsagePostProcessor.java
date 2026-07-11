@@ -84,6 +84,14 @@ public final class UsagePostProcessor {
                 break;
 
             default:
+                // 通用渠道：尝试从标准位置提取 cached_tokens（覆盖非 DEEPSEEK/ZHIPU/MOONSHOT 类型
+                // 但上游实际支持 prompt cache 的渠道，如 OpenAI 兼容代理转发 DeepSeek）
+                if (usage.getPromptTokensDetails().getCachedTokens() == 0) {
+                    int cached = extractCachedTokensFromBody(responseBody);
+                    if (cached > 0) {
+                        usage.getPromptTokensDetails().setCachedTokens(cached);
+                    }
+                }
                 break;
         }
     }

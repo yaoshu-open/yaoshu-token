@@ -137,7 +137,8 @@ vi.mock('@/store/modules/auth', () => ({
   useAuthStore: () => ({
     clearAuthToken: vi.fn(),
     userInfo: { id: 'test-user' }
-  })
+  }),
+  registerLogoutCallback: vi.fn()
 }))
 
 describe('useAiChat', () => {

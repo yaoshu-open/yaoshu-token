@@ -7,9 +7,10 @@
  */
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElNotification } from 'element-plus'
+import { ElNotification, ElMessage } from 'element-plus'
+import { Thinking } from 'vue-element-plus-x'
 import { MarkdownRender } from 'markstream-vue'
-import { Close, Plus, Promotion, VideoPause } from '@element-plus/icons-vue'
+import { Close, CopyDocument, Plus, Promotion, RefreshRight, VideoPause } from '@element-plus/icons-vue'
 import type { ModelOption } from '@/api/playground/types'
 import type { ComparisonColumn } from '@/composables/playground/useModelComparison'
 
@@ -28,6 +29,7 @@ const emit = defineEmits<{
   'remove-column': [model: string]
   'run': []
   'abort': []
+  'retry-column': [id: string]
 }>()
 
 const { t } = useI18n()
@@ -56,9 +58,23 @@ function handleRun(): void {
   emit('run')
 }
 
+async function handleCopy(content: string): Promise<void> {
+  if (!content) return
+  try {
+    await navigator.clipboard.writeText(content)
+    ElMessage.success(t('playground.message.copied'))
+  } catch {
+    ElMessage.error(t('playground.message.copyFailed'))
+  }
+}
+
 function formatUsage(usage: ComparisonColumn['usage']): string {
   if (!usage) return ''
-  return `${usage.total_tokens} tokens`
+  const parts: string[] = [`${usage.total_tokens} tokens`]
+  if (usage.prompt_tokens && usage.completion_tokens) {
+    parts.push(`${usage.prompt_tokens}/${usage.completion_tokens}`)
+  }
+  return parts.join(' · ')
 }
 </script>
 
@@ -114,17 +130,32 @@ function formatUsage(usage: ComparisonColumn['usage']): string {
         </div>
 
         <div class="comparison-view__column-body">
-          <!-- 流式中 -->
+          <!-- 推理过程（流式 thinking / 完成 end） -->
+          <Thinking
+            v-if="col.reasoning && (col.status === 'streaming' || col.status === 'done')"
+            :content="col.reasoning"
+            :status="col.status === 'streaming' ? 'thinking' : 'end'"
+            :auto-collapse="col.status === 'done'"
+          />
+
+          <!-- 正文 / 错误 / 空闲 -->
           <template v-if="col.status === 'streaming' || col.status === 'done'">
             <MarkdownRender
               v-if="col.content"
               :content="col.content"
               :final="col.status === 'done'"
               mode="chat"
+              :code-block-props="{ showCopyButton: true, showHeader: true }"
               class="comparison-view__markdown"
             />
+            <!-- 流式光标 -->
+            <span
+              v-if="col.status === 'streaming' && col.content"
+              class="comparison-view__cursor"
+            >▍</span>
+            <!-- 无内容 loading -->
             <div
-              v-else-if="col.status === 'streaming'"
+              v-if="col.status === 'streaming' && !col.content && !col.reasoning"
               class="comparison-view__loading"
             >
               <span class="comparison-view__loading-dot" />
@@ -133,13 +164,21 @@ function formatUsage(usage: ComparisonColumn['usage']): string {
             </div>
           </template>
 
-          <!-- 错误态 -->
+          <!-- 错误态 + 重试 -->
           <div
             v-else-if="col.status === 'error'"
             class="comparison-view__error"
           >
             <i class="i-ep-warning-filled" />
-            <span>{{ col.error }}</span>
+            <span class="comparison-view__error-text">{{ col.error }}</span>
+            <el-button
+              size="small"
+              text
+              :icon="RefreshRight"
+              @click="emit('retry-column', col.id)"
+            >
+              {{ t('common.retry') }}
+            </el-button>
           </div>
 
           <!-- 空闲态 -->
@@ -151,12 +190,25 @@ function formatUsage(usage: ComparisonColumn['usage']): string {
           </div>
         </div>
 
-        <!-- 底部 usage -->
+        <!-- 底部工具栏：usage + 复制 -->
         <div
-          v-if="col.usage && col.status === 'done'"
-          class="comparison-view__usage"
+          v-if="col.status === 'done'"
+          class="comparison-view__column-footer"
         >
-          {{ formatUsage(col.usage) }}
+          <span
+            v-if="col.usage"
+            class="comparison-view__usage"
+          >
+            {{ formatUsage(col.usage) }}
+          </span>
+          <button
+            type="button"
+            class="comparison-view__action-btn"
+            :title="t('playground.actions.copy')"
+            @click="handleCopy(col.content)"
+          >
+            <el-icon><CopyDocument /></el-icon>
+          </button>
         </div>
       </div>
     </div>
@@ -321,10 +373,17 @@ function formatUsage(usage: ComparisonColumn['usage']): string {
 
   &__error {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--ys-spacing-1);
     align-items: center;
     font-size: var(--ys-font-size-sm);
     color: var(--el-color-danger);
+  }
+
+  &__error-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
   }
 
   &__idle {
@@ -332,11 +391,43 @@ function formatUsage(usage: ComparisonColumn['usage']): string {
     color: var(--el-text-color-placeholder);
   }
 
-  &__usage {
+  &__cursor {
+    display: inline-block;
+    color: var(--el-color-primary);
+    animation: comparison-cursor-blink 1s step-end infinite;
+  }
+
+  &__column-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: var(--ys-spacing-1) var(--ys-spacing-3) var(--ys-spacing-2);
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  &__usage {
     font-size: 11px;
     color: var(--el-text-color-placeholder);
-    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  &__action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: var(--el-text-color-placeholder);
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: var(--el-border-radius-small);
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--el-color-primary);
+      background: var(--el-fill-color-light);
+    }
   }
 
   &__empty {
@@ -371,6 +462,18 @@ function formatUsage(usage: ComparisonColumn['usage']): string {
     display: flex;
     justify-content: flex-end;
   }
+
+  // Thinking 组件视觉与单对话模式一致
+  :deep(.elx-thinking) {
+    --elx-thinking-content-wrapper-width: 100%;
+    --elx-thinking-content-wrapper-background-color: color-mix(in srgb, var(--ys-color-secondary) 6%, transparent);
+    --elx-thinking-content-wrapper-color: var(--el-text-color-regular);
+  }
+
+  :deep(.elx-thinking__content pre) {
+    white-space: pre-wrap;
+    font-style: italic;
+  }
 }
 
 @keyframes comparison-loading-bounce {
@@ -381,5 +484,10 @@ function formatUsage(usage: ComparisonColumn['usage']): string {
   40% {
     transform: scale(1);
   }
+}
+
+@keyframes comparison-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 </style>

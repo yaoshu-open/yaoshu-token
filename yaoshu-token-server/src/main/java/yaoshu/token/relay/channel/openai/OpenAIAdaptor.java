@@ -197,12 +197,6 @@ public class OpenAIAdaptor implements IAdaptor {    /** 渠道类型（用于模
 
         GeneralOpenAIRequest openAIRequest = (GeneralOpenAIRequest) request;
 
-        // 非 OpenAI/Azure 渠道：去除 stream_options
-        if (this.channelType != ChannelConstants.CHANNEL_TYPE_OPENAI
-                && this.channelType != ChannelConstants.CHANNEL_TYPE_AZURE) {
-            openAIRequest.setStreamOptions(null);
-        }
-
         // 上游模型名
         String upstreamModel = info.getUpstreamModelName();
 

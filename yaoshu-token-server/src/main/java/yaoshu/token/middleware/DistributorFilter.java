@@ -21,6 +21,7 @@ import yaoshu.token.service.ChannelService;
 import yaoshu.token.service.GroupService;
 import yaoshu.token.service.MidjourneyService;
 import yaoshu.token.service.RetryParam;
+import yaoshu.token.spi.ChannelSelector;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -41,9 +42,11 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class DistributorFilter implements Filter {    private final ChannelService channelService;
+    private final ChannelSelector channelSelector;
 
-    public DistributorFilter(ChannelService channelService) {
+    public DistributorFilter(ChannelService channelService, ChannelSelector channelSelector) {
         this.channelService = channelService;
+        this.channelSelector = channelSelector;
     }
 
     // ======================== 模型请求内部类 ========================
@@ -166,7 +169,7 @@ public class DistributorFilter implements Filter {    private final ChannelServi
                 retryParam.setRetry(0);
 
                 Object[] selectResult = ChannelSelectService.cacheGetRandomSatisfiedChannel(
-                        retryParam, channelService);
+                        retryParam, channelService, channelSelector);
                 channel = (Channel) selectResult[0];
                 selectGroup = (String) selectResult[1];
 

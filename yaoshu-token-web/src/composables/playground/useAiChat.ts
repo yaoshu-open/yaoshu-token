@@ -29,7 +29,7 @@ import {
   OpenAIChatTransport,
   type PlaygroundChatBody
 } from './openai-chat-transport'
-import { useAuthStore } from '@/store/modules/auth'
+import { useAuthStore, registerLogoutCallback } from '@/store/modules/auth'
 import { STORAGE_KEYS } from '@/views/playground/constants'
 import { clearPlaygroundData } from '@/views/playground/lib/storage'
 import type { ChatCompletionRequest } from '@/api/playground/types'
@@ -378,3 +378,6 @@ export function disposeChat(): void {
   currentImageUrls = null
   currentImageEnabled = null
 }
+
+// IoC 注册：auth store clearAuthToken 时自动调 disposeChat（Playground 自主注册，auth 不反向依赖 Playground）
+registerLogoutCallback(disposeChat)

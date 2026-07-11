@@ -55,6 +55,10 @@ export interface UserSubscription {
   planId: number
   status: string
   source?: string
+  /** 订阅类型：free_trial=免费试用 / paid=付费订阅（后端返回） */
+  type?: string
+  /** 模型白名单（free_trial 时限定可用模型，JSON 数组字符串） */
+  modelWhitelist?: string
   startTime: number
   endTime: number
   amountTotal: number

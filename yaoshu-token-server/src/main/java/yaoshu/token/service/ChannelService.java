@@ -11,8 +11,10 @@ import ai.yue.library.web.util.ServletUtils;
 import yaoshu.token.mapper.ChannelMapper;
 import yaoshu.token.pojo.entity.Channel;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import ai.yue.library.base.convert.Convert;
@@ -217,6 +219,18 @@ public class ChannelService {
      * @return 可用渠道，无可用渠道时返回 null
      */
     public Channel getRandomSatisfiedChannel(String group, String modelName, int priorityRetry) {
+        return getRandomSatisfiedChannel(group, modelName, priorityRetry, null);
+    }
+
+    /**
+     * 随机选择一个满足条件的已启用渠道（支持排除已尝试的渠道）。
+     * <p>
+     * 重试场景传入 excludeIds 避免反复选到同一个已失败渠道。
+     *
+     * @param excludeIds 需排除的渠道 ID 集合（null 或 empty 表示不排除）
+     */
+    public Channel getRandomSatisfiedChannel(String group, String modelName, int priorityRetry,
+                                              Set<Integer> excludeIds) {
         if (group == null || group.isEmpty() || modelName == null || modelName.isEmpty()) {
             return null;
         }
@@ -236,9 +250,11 @@ public class ChannelService {
                 ? priorities.get(priorities.size() - 1)
                 : priorities.get(retry);
 
-        // 3. 目标优先级下的候选 ability，按 weight+10 加权随机
+        // 3. 目标优先级下的候选 ability，排除指定渠道后按 weight+10 加权随机
+        Set<Integer> finalExcludeIds = excludeIds != null ? excludeIds : Set.of();
         List<yaoshu.token.pojo.entity.Ability> candidates = abilities.stream()
                 .filter(a -> (a.getPriority() == null ? 0L : a.getPriority()) == targetPriority)
+                .filter(a -> !finalExcludeIds.contains(a.getChannelId()))
                 .collect(Collectors.toList());
         if (candidates.isEmpty()) {
             return null;
@@ -272,5 +288,57 @@ public class ChannelService {
             return false;
         }
         return abilityMapper.countEnabledForGroupModelChannel(group, modelName, channelId) > 0;
+    }
+
+    /**
+     * 获取指定分组+模型下目标优先级的所有候选渠道（排除指定 ID）。
+     * <p>
+     * 供 ChannelSelector SPI 使用——先获取候选集，再由 SPI 做健康过滤和智能选择。
+     *
+     * @param group         分组名
+     * @param modelName     模型名
+     * @param priorityRetry 重试优先级序号（0=最高优先级）
+     * @param excludeIds    需排除的渠道 ID 集合（null 或 empty 表示不排除）
+     * @return 候选渠道列表（已按 priority DESC 排序），空列表表示无可用渠道
+     */
+    public List<Channel> getCandidateChannels(String group, String modelName, int priorityRetry,
+                                               Set<Integer> excludeIds) {
+        if (group == null || group.isEmpty() || modelName == null || modelName.isEmpty()) {
+            return List.of();
+        }
+        List<yaoshu.token.pojo.entity.Ability> abilities = abilityMapper.selectEnabledAbilities(group, modelName);
+        if (abilities.isEmpty()) {
+            return List.of();
+        }
+
+        // 提取去重后的优先级列表（降序），按 retry 选定目标优先级
+        List<Long> priorities = abilities.stream()
+                .map(a -> a.getPriority() == null ? 0L : a.getPriority())
+                .distinct()
+                .collect(Collectors.toList());
+        int retry = priorityRetry < 0 ? 0 : priorityRetry;
+        long targetPriority = retry >= priorities.size()
+                ? priorities.get(priorities.size() - 1)
+                : priorities.get(retry);
+
+        // 目标优先级下的候选 ability，排除指定渠道
+        Set<Integer> finalExcludeIds = excludeIds != null ? excludeIds : Set.of();
+        List<yaoshu.token.pojo.entity.Ability> candidates = abilities.stream()
+                .filter(a -> (a.getPriority() == null ? 0L : a.getPriority()) == targetPriority)
+                .filter(a -> !finalExcludeIds.contains(a.getChannelId()))
+                .collect(Collectors.toList());
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+
+        // 加载启用的 Channel 对象
+        List<Channel> result = new ArrayList<>();
+        for (yaoshu.token.pojo.entity.Ability a : candidates) {
+            Channel channel = channelMapper.selectById(a.getChannelId());
+            if (channel != null && (channel.getStatus() == null || channel.getStatus() == 1)) {
+                result.add(channel);
+            }
+        }
+        return result;
     }
 }

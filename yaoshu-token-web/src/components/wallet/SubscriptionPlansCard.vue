@@ -64,7 +64,8 @@ const cancelling = ref(false)
 const renewing = ref(false)
 
 // ---- 计费偏好 ----
-const billingPreference = ref<string>('wallet_first')
+// 默认订阅优先：有订阅时优先消耗订阅额度，到期/无订阅时自然回退到钱包
+const billingPreference = ref<string>('subscription_first')
 const billingUpdating = ref(false)
 
 const billingOptions = computed(() => [
@@ -121,6 +122,11 @@ function isCurrentPlan(plan: SubscriptionPlan): boolean {
   return activePlan.value?.id === plan.id
 }
 
+/** 当前订阅是否为免费试用 */
+const isFreeTrial = computed(
+  () => currentSubscription.value?.subscription.type === 'free_trial'
+)
+
 /** 当前展示的订阅（优先活跃，其次过期、取消） */
 const currentSubscription = computed<UserSubscriptionRecord | null>(() => {
   const subs = selfData.value?.subscriptions
@@ -167,8 +173,13 @@ const progressColor = computed(() => {
 
 // ---- 工具方法 ----
 
-/** 根据套餐 ID 获取标题 */
+/** 根据套餐 ID 获取标题（区分免费试用） */
 function getPlanTitle(planId: number): string {
+  // planId=0 且当前订阅为 free_trial → 显示"免费试用"
+  const isFreeTrial = currentSubscription.value?.subscription.type === 'free_trial'
+  if (planId === 0 && isFreeTrial) {
+    return t('wallet.subscription.plans.freeTrial')
+  }
   const record = plans.value.find((r) => r.plan.id === planId)
   return record?.plan.title || t('wallet.subscription.plans.planTitle', { id: planId })
 }
@@ -212,7 +223,7 @@ async function loadData(): Promise<void> {
     ])
     plans.value = plansRes || []
     selfData.value = selfRes || null
-    billingPreference.value = selfData.value?.billingPreference || 'wallet_first'
+    billingPreference.value = selfData.value?.billingPreference || 'subscription_first'
   } catch {
     // 错误由请求拦截器统一提示
   } finally {
@@ -366,8 +377,18 @@ onUnmounted(() => {
           >
             {{ getStatusLabel(currentSubscription.subscription.status) }}
           </ElTag>
+          <!-- 免费试用徽章 -->
           <ElTag
-            v-if="isSubscriptionActive"
+            v-if="isFreeTrial"
+            type="primary"
+            size="small"
+            effect="plain"
+          >
+            {{ t('wallet.subscription.plans.freeTrial') }}
+          </ElTag>
+          <!-- 自动续期标签（仅付费订阅显示） -->
+          <ElTag
+            v-else-if="isSubscriptionActive"
             :type="isAutoRenew ? 'success' : 'warning'"
             size="small"
             effect="plain"
@@ -416,7 +437,11 @@ onUnmounted(() => {
               :show-text="false"
             />
           </div>
-          <div class="subscription-plans__renew-actions">
+          <!-- 续期操作（免费试用不显示，不涉及续期） -->
+          <div
+            v-if="!isFreeTrial"
+            class="subscription-plans__renew-actions"
+          >
             <ElButton
               v-if="isAutoRenew"
               :loading="cancelling"
@@ -449,6 +474,10 @@ onUnmounted(() => {
         :image-size="60"
       />
     </ElCard>
+
+    <!-- SPI 扩展点：订阅用量进度卡片（商业版注入，开源版不渲染） -->
+    <!-- 排在计费偏好之前：用户先看用量再决定偏好 -->
+    <slot name="progress" />
 
     <!-- 计费偏好选择器 -->
     <ElCard
@@ -488,9 +517,6 @@ onUnmounted(() => {
         </p>
       </div>
     </ElCard>
-
-    <!-- SPI 扩展点：订阅用量进度卡片（商业版注入，开源版不渲染，auto-fit 自动折叠为2列） -->
-    <slot name="progress" />
     </div>
 
     <!-- 可用套餐网格 -->

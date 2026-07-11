@@ -1,6 +1,8 @@
 package yaoshu.token.service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,7 @@ import yaoshu.token.constant.EndpointDefaults.EndpointInfo;
 import yaoshu.token.constant.EndpointTypeEnum;
 import yaoshu.token.mapper.AbilityMapper;
 import yaoshu.token.mapper.ModelMetaMapper;
+import yaoshu.token.mapper.QuotaMapper;
 import yaoshu.token.mapper.VendorMapper;
 import yaoshu.token.pojo.dto.AbilityWithChannel;
 import yaoshu.token.pojo.entity.ModelMeta;
@@ -44,6 +47,7 @@ public class PricingService {
 
     private final AbilityMapper abilityMapper;
     private final ModelMetaMapper modelMetaMapper;
+    private final QuotaMapper quotaMapper;
     private final VendorMapper vendorMapper;
     private final OptionService optionService;
     private final PricingEnhancer pricingEnhancer;
@@ -354,10 +358,56 @@ public class PricingService {
         // SPI 增强钩子：定价数据产出后，由扩展点进行后处理（如动态定价）
         pricingEnhancer.enhance(pricingList);
 
+        // 按供应商调用量排序，供应商内部按模型调用量排序
+        sortByCallVolume(pricingList, metaMap);
+
         return new PricingSnapshot(pricingList, vendorsList, endpointMap, enableGroupsCache, quotaTypeCache);
     }
 
     // ======================== 模型名匹配辅助 ========================
+
+    /**
+     * 按供应商调用量排序，供应商内部按模型调用量排序。
+     * <p>
+     * 无调用数据的模型排在有调用数据的模型之后，保持原始相对顺序。
+     */
+    private void sortByCallVolume(List<PricingVO> pricingList, Map<String, ModelMeta> metaMap) {
+        if (pricingList == null || pricingList.size() <= 1) return;
+
+        // 查询全量模型调用量
+        List<QuotaMapper.RankingQuotaTotal> totals;
+        try {
+            totals = quotaMapper.getRankingQuotaTotals(null, null);
+        } catch (Exception e) {
+            log.warn("查询模型调用量失败，跳过排序: {}", e.getMessage());
+            return;
+        }
+
+        Map<String, Long> modelTokens = new HashMap<>();
+        for (var t : totals) {
+            modelTokens.put(t.getModelName(), t.getTotalTokens());
+        }
+
+        // 计算每个供应商的总调用量
+        Map<Integer, Long> vendorTokens = new HashMap<>();
+        for (PricingVO p : pricingList) {
+            long tokens = modelTokens.getOrDefault(p.getModelName(), 0L);
+            if (p.getVendorId() != null) {
+                vendorTokens.merge(p.getVendorId(), tokens, Long::sum);
+            }
+        }
+
+        // 排序：供应商总调用量降序 → 供应商内部模型调用量降序
+        pricingList.sort(Comparator
+                .comparingLong((PricingVO p) -> {
+                    int vid = p.getVendorId() != null ? p.getVendorId() : 0;
+                    return -vendorTokens.getOrDefault(vid, 0L); // 负值实现降序
+                })
+                .thenComparingLong((PricingVO p) ->
+                        -modelTokens.getOrDefault(p.getModelName(), 0L)
+                )
+        );
+    }
 
     private void matchPrefixModels(List<ModelMeta> prefixList, List<AbilityWithChannel> abilities, Map<String, ModelMeta> metaMap) {
         for (ModelMeta m : prefixList) {

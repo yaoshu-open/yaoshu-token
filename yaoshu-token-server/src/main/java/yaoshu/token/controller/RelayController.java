@@ -569,7 +569,7 @@ public class RelayController {
     /**
      * 重试时从 ChannelSelectService 重新选择渠道      */
     private Channel selectChannelForRetry(HttpServletRequest req, RelayInfo info, RetryParam retryParam) {
-        Object[] result = ChannelSelectService.cacheGetRandomSatisfiedChannel(retryParam, channelService);
+        Object[] result = ChannelSelectService.cacheGetRandomSatisfiedChannel(retryParam, channelService, channelSelector);
         Channel channel = (Channel) result[0];
         String selectGroup = (String) result[1];
 

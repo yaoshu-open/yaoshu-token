@@ -1,6 +1,7 @@
 package yaoshu.token.config;
 
 import ai.yue.library.data.redis.client.Redis;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,6 +10,7 @@ import yaoshu.token.service.ChannelService;
 import yaoshu.token.service.UserService;
 import yaoshu.token.service.TokenService;
 import yaoshu.token.service.OptionService;
+import yaoshu.token.spi.ChannelSelector;
 
 /**
  * Filter 注册与顺序配置  * <p>
@@ -47,14 +49,17 @@ public class FilterConfig {
     private final ChannelService channelService;
     private final Redis redis;
     private final OptionService optionService;
+    private final ChannelSelector channelSelector;
 
     public FilterConfig(UserService userService, TokenService tokenService, ChannelService channelService,
-                        Redis redis, OptionService optionService) {
+                        Redis redis, OptionService optionService,
+                        @Autowired(required = false) ChannelSelector channelSelector) {
         this.userService = userService;
         this.tokenService = tokenService;
         this.channelService = channelService;
         this.redis = redis;
         this.optionService = optionService;
+        this.channelSelector = channelSelector;
     }
 
     // ==================== 全局 Filter ====================
@@ -220,7 +225,7 @@ public class FilterConfig {
     @Bean
     public FilterRegistrationBean<DistributorFilter> distributorFilter() {
         FilterRegistrationBean<DistributorFilter> bean = new FilterRegistrationBean<>();
-        bean.setFilter(new DistributorFilter(channelService));
+        bean.setFilter(new DistributorFilter(channelService, channelSelector));
         // 渠道分发：所有 AI API 中转路由
         bean.addUrlPatterns("/v1/*", "/v1beta/*", "/mj/*",
                 "/suno/*", "/pg/*");

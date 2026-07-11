@@ -2,6 +2,7 @@ package yaoshu.token.config.ratio;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -32,6 +33,9 @@ public final class CompletionRatioConfig {
 
     private static final ConcurrentHashMap<String, Double> completionRatioMap = new ConcurrentHashMap<>(DEFAULT_COMPLETION_RATIO);
 
+    /** 动态定价覆盖标记——通过 putCompletionRatio 显式设置的模型，优先于硬编码锁定规则 */
+    private static final Set<String> dynamicOverrideModels = ConcurrentHashMap.newKeySet();
+
     /**
      * 获取补全倍率。      * <p>
      * 流程：
@@ -52,6 +56,12 @@ public final class CompletionRatioConfig {
     public static double getCompletionRatio(String modelName) {
         if (modelName == null) return 1.0;
         String name = ModelRatioConfig.formatMatchingModelName(modelName);
+
+        // 0. 动态定价覆盖——优先于一切（包括硬编码锁定），确保计费比率与定价展示一致
+        if (dynamicOverrideModels.contains(name)) {
+            Double ratio = completionRatioMap.get(name);
+            if (ratio != null) return ratio;
+        }
 
         // 1. 包含 "/" 的 submodel 路径名优先读 map
         if (name.contains("/")) {
@@ -89,6 +99,12 @@ public final class CompletionRatioConfig {
     public static CompletionRatioInfo getCompletionRatioInfo(String modelName) {
         if (modelName == null) return new CompletionRatioInfo(1.0, false);
         String name = ModelRatioConfig.formatMatchingModelName(modelName);
+
+        // 0. 动态定价覆盖——优先于一切（包括硬编码锁定）
+        if (dynamicOverrideModels.contains(name)) {
+            Double ratio = completionRatioMap.get(name);
+            if (ratio != null) return new CompletionRatioInfo(ratio, false);
+        }
 
         if (name.contains("/")) {
             Double ratio = completionRatioMap.get(name);
@@ -286,6 +302,7 @@ public final class CompletionRatioConfig {
      */
     public static void update(Map<String, Double> ratios) {
         completionRatioMap.clear();
+        dynamicOverrideModels.clear();
         if (ratios != null && !ratios.isEmpty()) {
             completionRatioMap.putAll(ratios);
         }
@@ -301,7 +318,9 @@ public final class CompletionRatioConfig {
      */
     public static void putCompletionRatio(String modelName, double ratio) {
         if (modelName != null) {
-            completionRatioMap.put(ModelRatioConfig.formatMatchingModelName(modelName), ratio);
+            String name = ModelRatioConfig.formatMatchingModelName(modelName);
+            completionRatioMap.put(name, ratio);
+            dynamicOverrideModels.add(name);
         }
     }
 }

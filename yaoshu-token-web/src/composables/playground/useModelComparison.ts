@@ -54,10 +54,24 @@ export function useModelComparison(options: {
     if (selectedModels.value.length >= MAX_COLUMNS) return
     if (selectedModels.value.includes(model)) return
     selectedModels.value = [...selectedModels.value, model]
+    columns.value = [
+      ...columns.value,
+      { id: `col_${model}`, model, status: 'idle', content: '', reasoning: '' }
+    ]
   }
 
   function removeColumn(model: string): void {
+    // 中止该列的流（如有）并移除列
+    const col = columns.value.find((c) => c.model === model)
+    if (col) {
+      const controller = abortControllers.get(col.id)
+      if (controller) {
+        controller.abort()
+        abortControllers.delete(col.id)
+      }
+    }
     selectedModels.value = selectedModels.value.filter((m) => m !== model)
+    columns.value = columns.value.filter((c) => c.model !== model)
   }
 
   function updateColumn(id: string, updates: Partial<ComparisonColumn>): void {
@@ -69,12 +83,14 @@ export function useModelComparison(options: {
   async function runComparison(): Promise<void> {
     if (selectedModels.value.length === 0) return
 
-    columns.value = selectedModels.value.map((model) => ({
-      id: `col_${Date.now()}_${model}`,
-      model,
+    // 列在 addColumn 时已创建，此处仅重置状态（保持 id 稳定）
+    columns.value = columns.value.map((c) => ({
+      ...c,
       status: 'idle' as const,
       content: '',
-      reasoning: ''
+      reasoning: '',
+      error: undefined,
+      usage: undefined
     }))
 
     const queue = [...columns.value]
@@ -209,7 +225,15 @@ export function useModelComparison(options: {
 
   function clearComparison(): void {
     abortAll()
+    selectedModels.value = []
     columns.value = []
+  }
+
+  /** 单列重试：重置该列状态并重新运行（用于错误态重试） */
+  async function retryColumn(id: string): Promise<void> {
+    const column = columns.value.find((c) => c.id === id)
+    if (!column) return
+    await runSingleColumn(column)
   }
 
   return {
@@ -220,6 +244,7 @@ export function useModelComparison(options: {
     addColumn,
     removeColumn,
     runComparison,
+    retryColumn,
     abortAll,
     clearComparison
   }

@@ -5,8 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import yaoshu.token.constant.CommonConstants;
 import yaoshu.token.constant.ContextKeyConstants;
 import yaoshu.token.pojo.entity.Channel;
+import yaoshu.token.spi.ChannelSelector;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 渠道选择服务（带重试与自动分组）  * <p>
@@ -26,7 +28,8 @@ public final class ChannelSelectService {
     }
 
     /**
-     * 尝试获取一个满足要求的渠道（优先选择未使用的）      * <p>
+     * 尝试获取一个满足要求的渠道（优先选择未使用的）
+     * <p>
      * auto 分组流程示例（2 个分组，每分组 2 个优先级，RetryTimes=3）：
      * <pre>
      * Retry=0: GroupA, priority0
@@ -36,12 +39,16 @@ public final class ChannelSelectService {
      * </pre>
      *
      * @param param 重试参数（含 tokenGroup、modelName、retry 计数器）
+     * @param channelService 渠道服务
+     * @param channelSelector 渠道选择 SPI（null 时走开源加权随机路径）
      * @return [渠道对象, 实际使用的分组名称]；渠道为 null 表示未找到
      */
-    public static Object[] cacheGetRandomSatisfiedChannel(RetryParam param, ChannelService channelService) {
+    public static Object[] cacheGetRandomSatisfiedChannel(RetryParam param, ChannelService channelService,
+                                                           ChannelSelector channelSelector) {
         String selectGroup = param.getTokenGroup();
         HttpServletRequest request = param.getRequest();
         String userGroup = getContextString(request, ContextKeyConstants.USER_GROUP);
+        Set<Integer> usedChannelIds = extractUsedChannels(request);
 
         if ("auto".equals(param.getTokenGroup())) {
             // auto 分组模式：按用户分组列表依次遍历
@@ -67,7 +74,8 @@ public final class ChannelSelectService {
                 }
                 log.debug("Auto selecting group: {}, priorityRetry: {}", autoGroup, priorityRetry);
 
-                Channel channel = channelService.getRandomSatisfiedChannel(autoGroup, param.getModelName(), priorityRetry);
+                Channel channel = selectChannel(channelService, channelSelector,
+                        autoGroup, param.getModelName(), priorityRetry, usedChannelIds);
                 if (channel == null) {
                     // 当前分组没有该模型的可用渠道，尝试下一个分组
                     log.debug("No available channel in group {} for model {} at priorityRetry {}, trying next group",
@@ -99,8 +107,8 @@ public final class ChannelSelectService {
             }
         } else {
             // 非 auto 分组：直接委托
-            Channel channel = channelService.getRandomSatisfiedChannel(
-                    param.getTokenGroup(), param.getModelName(), param.getRetry());
+            Channel channel = selectChannel(channelService, channelSelector,
+                    param.getTokenGroup(), param.getModelName(), param.getRetry(), usedChannelIds);
             if (channel == null) {
                 return new Object[]{null, param.getTokenGroup()};
             }
@@ -109,6 +117,49 @@ public final class ChannelSelectService {
 
         // 此时 channel 可能为 null（auto 分组全部遍历完仍无渠道）
         return new Object[]{null, selectGroup};
+    }
+
+    /**
+     * 旧签名兼容——不使用 ChannelSelector SPI。
+     */
+    public static Object[] cacheGetRandomSatisfiedChannel(RetryParam param, ChannelService channelService) {
+        return cacheGetRandomSatisfiedChannel(param, channelService, null);
+    }
+
+    /**
+     * 统一渠道选择入口：优先使用 ChannelSelector SPI（健康过滤+智能选择），无 SPI 时走加权随机。
+     */
+    private static Channel selectChannel(ChannelService channelService, ChannelSelector channelSelector,
+                                          String group, String modelName, int priorityRetry,
+                                          Set<Integer> excludeIds) {
+        if (channelSelector != null) {
+            // SPI 路径：获取候选集 → SPI 做健康过滤和智能选择
+            List<Channel> candidates = channelService.getCandidateChannels(group, modelName, priorityRetry, excludeIds);
+            if (candidates.isEmpty()) {
+                return null;
+            }
+            return channelSelector.select(candidates, null);
+        }
+        // 开源路径：加权随机（排除已用渠道）
+        return channelService.getRandomSatisfiedChannel(group, modelName, priorityRetry, excludeIds);
+    }
+
+    /**
+     * 从 request attribute 提取已尝试的渠道 ID 列表（由 RelayController.addUsedChannel 维护）。
+     */
+    @SuppressWarnings("unchecked")
+    private static Set<Integer> extractUsedChannels(HttpServletRequest request) {
+        if (request == null) {
+            return Set.of();
+        }
+        Object used = request.getAttribute("use_channel");
+        if (used instanceof List<?> list) {
+            return list.stream()
+                    .filter(o -> o instanceof Integer)
+                    .map(o -> (Integer) o)
+                    .collect(java.util.stream.Collectors.toSet());
+        }
+        return Set.of();
     }
 
     // ======================== 上下文辅助方法（stub） ========================

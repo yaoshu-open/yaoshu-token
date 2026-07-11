@@ -87,6 +87,14 @@ const loadModelsAndGroups = async (): Promise<void> => {
     // 默认选最便宜的模型：查 Pricing API 交叉比对 modelRatio
     const cheapest = await pickCheapestModel(state.models.value)
     state.updateConfig('model', cheapest)
+  } else if (
+    state.models.value.length > 0 &&
+    state.config.value.model &&
+    !isChatModelByName(state.config.value.model)
+  ) {
+    // 缓存的 model 是非对话模型（如 image/embed）时重选为对话模型
+    const cheapest = await pickCheapestModel(state.models.value)
+    state.updateConfig('model', cheapest)
   }
   if (
     state.groups.value.length > 0 &&
@@ -97,13 +105,24 @@ const loadModelsAndGroups = async (): Promise<void> => {
   }
 }
 
+/** 非对话模型名称关键词（无 Pricing 数据时基于名称过滤） */
+const NON_CHAT_KEYWORDS = ['image', 'embed', 'tts', 'whisper', 'rerank', 'moderation', 'stt']
+
+/** 基于模型名判断是否是对话模型（fallback 过滤用，Pricing 数据精确度更高但不可用时用此兜底） */
+function isChatModelByName(name: string): boolean {
+  const lower = name.toLowerCase()
+  return !NON_CHAT_KEYWORDS.some((kw) => lower.includes(kw))
+}
+
 /**
  * 从可用模型列表中选最便宜的对话模型（按 Pricing API 的 modelRatio 升序）。
  * 排除图片/embedding/语音等非对话模型，仅考虑 quotaType=0（按量计费）的文本对话模型。
- * Pricing API 无覆盖或匹配失败时 fallback 到列表第一个。
+ * Pricing API 无覆盖或匹配失败时 fallback 到第一个对话模型（名称过滤，避免选中 image 等模型）。
  */
 async function pickCheapestModel(models: { label: string; value: string }[]): Promise<string> {
-  const fallback = models[0]?.value ?? ''
+  // fallback 时过滤非对话模型，避免选中 image/embed/tts 等模型
+  const chatFallback = models.find((m) => isChatModelByName(m.value))
+  const fallback = chatFallback?.value ?? models[0]?.value ?? ''
   if (models.length === 0) return fallback
   try {
     const { getPricing } = await import('@/api/pricing')
@@ -119,13 +138,15 @@ async function pickCheapestModel(models: { label: string; value: string }[]): Pr
       return !excludeStr.some(kw => tags.includes(kw) || endpoints.includes(kw))
     }
     // 构建 modelName → modelRatio 映射（仅按量计费对话模型）
+    // 双重过滤：Pricing tags/endpoints + 模型名关键词（tags 数据可能为 null/不准确）
     const ratioMap = new Map<string, number>()
     for (const p of data.pricing) {
       if (
         p.quotaType === 0 &&
         typeof p.modelRatio === 'number' &&
         p.modelRatio > 0 &&
-        isChatModel(p)
+        isChatModel(p) &&
+        isChatModelByName(p.modelName)
       ) {
         ratioMap.set(p.modelName, p.modelRatio)
       }
@@ -507,6 +528,7 @@ watch(error, (err) => {
       @remove-comparison-column="(model: string) => comparison.removeColumn(model)"
       @run-comparison="() => void comparison.runComparison()"
       @abort-comparison="() => comparison.abortAll()"
+      @retry-comparison-column="(id: string) => void comparison.retryColumn(id)"
     />
 
     <!-- P3: 快捷键帮助弹窗 -->

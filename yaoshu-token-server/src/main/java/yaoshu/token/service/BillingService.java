@@ -3,6 +3,7 @@ package yaoshu.token.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import ai.yue.library.base.convert.Convert;
 import yaoshu.token.pojo.dto.ErrorCode;
 import yaoshu.token.pojo.dto.Usage;
 import yaoshu.token.pojo.entity.User;
@@ -29,16 +30,49 @@ public class BillingService {
 
     /**
      * 创建 BillingSession 并执行预扣费      * <p>
-     * 使用 subscription_first 偏好：优先检查订阅额度，不足时回退钱包。
+     * 从用户 setting 读取 billing_preference（subscription_first / wallet_first / subscription_only / wallet_only），
+     * 未配置时默认 subscription_first。
      */
     public String preConsumeBilling(RelayInfo relayInfo, int preConsumedQuota) {
+        String preference = extractBillingPreference(relayInfo);
         BillingSessionService.BillingSession session = billingSessionService.newSessionWithPreference(
-                relayInfo, preConsumedQuota, "subscription_first");
+                relayInfo, preConsumedQuota, preference);
         if (session == null) {
             return "预扣费失败：额度不足";
         }
         relayInfo.setBilling(session);
         return null;
+    }
+
+    /**
+     * 从用户 setting JSON 中提取 billing_preference，未配置时返回 subscription_first。
+     */
+    private String extractBillingPreference(RelayInfo relayInfo) {
+        int userId = relayInfo.getUserId();
+        if (userId <= 0) {
+            return "subscription_first";
+        }
+        User user = userService.getById(userId, true);
+        if (user == null || user.getSetting() == null || user.getSetting().isBlank()) {
+            return "subscription_first";
+        }
+        try {
+            com.alibaba.fastjson2.JSONObject setting = Convert.toJSONObject(user.getSetting());
+            String pref = setting != null ? setting.getString("billing_preference") : null;
+            if (pref != null) {
+                pref = pref.trim().toLowerCase();
+                switch (pref) {
+                    case "subscription_first":
+                    case "wallet_first":
+                    case "subscription_only":
+                    case "wallet_only":
+                        return pref;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("解析 billing_preference 失败: {}", e.getMessage());
+        }
+        return "subscription_first";
     }
 
     /**

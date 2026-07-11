@@ -106,10 +106,11 @@ public class CompatibleHandler {    private static final Map<String, Pattern> RE
         boolean includeUsage = extractIncludeUsage(request.getStreamOptions());
 
         // ====== 6. StreamOptions 兼容性处理 ======
-        if (!info.isSupportStreamOptions() || !request.isStream()) {
+        // 流式请求强制注入 include_usage=true——现代 OpenAI 兼容 API 普遍支持或忽略此字段，
+        // 移除基于模型名的 isSupportStreamOptions 判断（过于保守，导致 DeepSeek 等渠道流式 usage 丢失）
+        if (!request.isStream()) {
             request.setStreamOptions(null);
         } else if (FORCE_STREAM_OPTION) {
-            // 强制返回 usage：若支持 StreamOptions 且请求为 stream，设置 IncludeUsage=true
             Map<String, Boolean> forcedOptions = new LinkedHashMap<>();
             forcedOptions.put("include_usage", true);
             request.setStreamOptions(forcedOptions);

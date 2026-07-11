@@ -441,6 +441,7 @@
         "remainingDaysValue": "{days} 天",
         "quotaUsage": "额度使用",
         "planTitle": "套餐 #{id}",
+        "freeTrial": "免费试用",
         "billingStrategy": {
           "subscriptionFirst": "订阅优先",
           "walletFirst": "钱包优先",
