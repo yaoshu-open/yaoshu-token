@@ -104,3 +104,15 @@ export function paySubscriptionWaffoPancake(data: SubscriptionPayRequest) {
 export function getPaymentCompliance() {
   return request.get<ComplianceConfirmResponse>('/api/option/')
 }
+
+// ============ User Subscription Auto-Renew ============
+
+/** 关闭自动续期（当前周期仍可用到到期，到期不再扣费） */
+export function cancelSelfSubscription(): Promise<UserSubscriptionRecord[]> {
+  return request.post<UserSubscriptionRecord[]>('/api/subscription/self/cancel')
+}
+
+/** 重新开启自动续期（关闭后可恢复，到期自动扣费续期） */
+export function enableSelfAutoRenew(): Promise<UserSubscriptionRecord[]> {
+  return request.post<UserSubscriptionRecord[]>('/api/subscription/self/renew/enable')
+}

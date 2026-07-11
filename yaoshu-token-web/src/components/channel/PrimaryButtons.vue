@@ -6,6 +6,12 @@
  */
 import { Plus, Connection, Wallet, Tools, Delete, ArrowDown } from '@element-plus/icons-vue'
 
+defineProps<{
+  testAllLoading?: boolean
+  updateAllBalanceLoading?: boolean
+  selectedCount?: number
+}>()
+
 defineEmits<{
   (e: 'add'): void
   (e: 'test-all'): void
@@ -27,13 +33,17 @@ defineEmits<{
 
     <el-button
       :icon="Connection"
+      :loading="testAllLoading"
       @click="$emit('test-all')"
     >
-      {{ $t('channel.actions.testAll') }}
+      {{ selectedCount && selectedCount > 0
+        ? $t('channel.actions.testSelected', { count: selectedCount })
+        : $t('channel.actions.testAll') }}
     </el-button>
 
     <el-button
       :icon="Wallet"
+      :loading="updateAllBalanceLoading"
       @click="$emit('update-all-balance')"
     >
       {{ $t('channel.actions.updateAllBalance') }}

@@ -88,7 +88,7 @@ export function useUserActions(refreshFn: () => Promise<void> | void) {
   async function adjustQuota(userId: number, quota: number, action: 'add' | 'subtract' | 'override'): Promise<void> {
     actionLoading.value = true
     try {
-      await manageUserQuota({ userId, quota, action })
+      await manageUserQuota({ id: userId, action: 'add_quota', value: quota, mode: action })
       ElMessage.success(t('user.actions.quotaAdjusted'))
       await refreshFn()
     } catch {

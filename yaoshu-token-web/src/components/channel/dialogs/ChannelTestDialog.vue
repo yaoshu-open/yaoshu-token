@@ -96,6 +96,7 @@ const selectedModels = ref<string[]>([])
 const testingModels = ref<Set<string>>(new Set())
 const isBatchTesting = ref(false)
 const expandedErrorModel = ref<string | null>(null)
+const tableRef = ref<InstanceType<typeof ElTable>>()
 
 // ============================================================================
 // 计算属性
@@ -118,6 +119,9 @@ const filteredModels = computed(() => {
   const kw = searchTerm.value.toLowerCase()
   return models.value.filter((m) => m.toLowerCase().includes(kw))
 })
+
+/** 表格数据（预计算，避免内联 .map() 每次响应式触发创建新对象致选择状态丢失） */
+const tableData = computed(() => filteredModels.value.map((m) => ({ model: m })))
 
 const defaultTestModel = computed(() =>
   props.channel?.testModel?.trim() || ''
@@ -229,20 +233,25 @@ async function testSingleModel(model: string, silent = false): Promise<TestResul
   return finalResult
 }
 
-async function handleBatchTest(): Promise<void> {
-  if (!selectedModels.value.length) return
+/** 批量测试指定模型列表，结果更新到表格状态列 */
+async function batchTestModels(modelsToTest: string[]): Promise<void> {
+  if (!modelsToTest.length) return
 
   isBatchTesting.value = true
-  try {
-    const settled = await Promise.allSettled(
-      selectedModels.value.map((m) => testSingleModel(m, true))
-    )
-    const results = settled
-      .map((r) => (r.status === 'fulfilled' ? r.value : undefined))
-      .filter((r): r is TestResult => Boolean(r))
+  // 立即标记所有模型为 testing 状态，让用户看到即时反馈
+  for (const m of modelsToTest) {
+    updateTestResult(m, { status: 'testing' })
+  }
 
-    const success = results.filter((r) => r.status === 'success').length
-    const failed = selectedModels.value.length - success
+  try {
+    // 逐个测试（非并发），避免大量模型同时请求导致浏览器连接排队和后端过载
+    let success = 0
+    let failed = 0
+    for (const m of modelsToTest) {
+      const result = await testSingleModel(m, true)
+      if (result?.status === 'success') success++
+      else failed++
+    }
 
     if (failed > 0) {
       ElMessage.warning(
@@ -255,8 +264,21 @@ async function handleBatchTest(): Promise<void> {
     }
   } finally {
     isBatchTesting.value = false
-    selectedModels.value = []
+    tableRef.value?.clearSelection()
   }
+}
+
+/** 批量测试选中的模型（由批量操作栏按钮触发） */
+async function handleBatchTest(): Promise<void> {
+  // 复制一份，避免 clearSelection 清空 selectedModels 影响遍历
+  const modelsToTest = [...selectedModels.value]
+  await batchTestModels(modelsToTest)
+}
+
+/** 测试当前过滤后的全部模型 */
+async function handleTestAll(): Promise<void> {
+  if (!filteredModels.value.length || isBatchTesting.value) return
+  await batchTestModels(filteredModels.value.slice())
 }
 
 function toggleErrorExpand(model: string): void {
@@ -336,13 +358,23 @@ function handleSelectionChange(selection: { model: string }[]): void {
             <span class="test-dialog__models-title">{{ t('channel.dialog.test.models') }}</span>
             <span class="test-dialog__models-count">({{ models.length }})</span>
           </div>
-          <el-input
-            v-model="searchTerm"
-            :placeholder="t('channel.dialog.test.searchPlaceholder')"
-            clearable
-            size="small"
-            style="width: 220px"
-          />
+          <div class="test-dialog__models-actions">
+            <el-button
+              size="small"
+              :loading="isBatchTesting"
+              :disabled="filteredModels.length === 0"
+              @click="handleTestAll"
+            >
+              {{ t('channel.dialog.test.testAll') }}
+            </el-button>
+            <el-input
+              v-model="searchTerm"
+              :placeholder="t('channel.dialog.test.searchPlaceholder')"
+              clearable
+              size="small"
+              style="width: 220px"
+            />
+          </div>
         </div>
 
         <!-- 批量操作栏 -->
@@ -364,7 +396,9 @@ function handleSelectionChange(selection: { model: string }[]): void {
         </div>
 
         <el-table
-          :data="filteredModels.map((m) => ({ model: m }))"
+          ref="tableRef"
+          :data="tableData"
+          :row-key="(row: { model: string }) => row.model"
           max-height="400"
           size="small"
           @selection-change="handleSelectionChange"
@@ -594,6 +628,12 @@ function handleSelectionChange(selection: { model: string }[]): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.test-dialog__models-actions {
+  display: flex;
+  gap: var(--ys-spacing-2);
+  align-items: center;
 }
 
 .test-dialog__models-title {

@@ -22,7 +22,6 @@ export const USER_ENDPOINTS = {
   UPDATE: '/api/user/',
   DELETE: '/api/user',
   MANAGE: '/api/user/manage',
-  QUOTA: '/api/user/quota',
   /** 当前用户可用模型列表（Dashboard SetupGuide curl 预览消费） */
   USER_MODELS: '/api/user/models',
 } as const

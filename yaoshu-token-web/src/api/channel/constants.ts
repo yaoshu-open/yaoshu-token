@@ -39,6 +39,8 @@ export const CHANNEL_ENDPOINTS = {
   KEY: '/api/channel',
   /** 测试所有渠道 */
   TEST_ALL: '/api/channel/test',
+  /** 按 ID 列表批量测试渠道 */
+  TEST_BATCH: '/api/channel/test/batch',
   /** 更新所有渠道余额 */
   UPDATE_BALANCE_ALL: '/api/channel/update_balance',
   /** 所有可用模型 */

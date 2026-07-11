@@ -28,6 +28,7 @@ import { formatQuotaWithCurrency } from '@/utils/currency'
 interface Props {
   visible: boolean
   plan: SubscriptionPlan | null
+  isUpgrade?: boolean
   enableStripe?: boolean
   enableCreem?: boolean
   enableWaffoPancake?: boolean
@@ -38,6 +39,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  isUpgrade: false,
   enableStripe: false,
   enableCreem: false,
   enableWaffoPancake: false,
@@ -110,8 +112,12 @@ async function handleBalancePay(): Promise<void> {
   if (!props.plan || processing.value) return
   try {
     await ElMessageBox.confirm(
-      t('wallet.subscription.purchase.balancePayConfirmMsg', { quota: formatQuotaWithCurrency(balanceCost.value) }),
-      t('wallet.subscription.purchase.balancePayConfirmTitle'),
+      props.isUpgrade
+        ? t('wallet.subscription.purchase.upgradeConfirmMsg', { quota: formatQuotaWithCurrency(balanceCost.value) })
+        : t('wallet.subscription.purchase.balancePayConfirmMsg', { quota: formatQuotaWithCurrency(balanceCost.value) }),
+      props.isUpgrade
+        ? t('wallet.subscription.purchase.upgradeConfirmTitle')
+        : t('wallet.subscription.purchase.balancePayConfirmTitle'),
       {
         confirmButtonText: t('common.confirm'),
         cancelButtonText: t('common.cancel'),
@@ -125,7 +131,11 @@ async function handleBalancePay(): Promise<void> {
   processing.value = 'balance'
   try {
     await paySubscriptionBalance(buildPayRequest())
-    ElMessage.success(t('wallet.subscription.purchase.subscribeSuccess'))
+    ElMessage.success(
+      props.isUpgrade
+        ? t('wallet.subscription.purchase.upgradeSuccess')
+        : t('wallet.subscription.purchase.subscribeSuccess')
+    )
     emit('purchase-success')
     dialogVisible.value = false
   } catch {
@@ -235,7 +245,7 @@ async function handleEpayPay(): Promise<void> {
 <template>
   <ElDialog
     v-model="dialogVisible"
-    :title="t('wallet.subscription.purchase.title')"
+    :title="props.isUpgrade ? t('wallet.subscription.purchase.upgradeTitle') : t('wallet.subscription.purchase.title')"
     width="520px"
     align-center
     :close-on-click-modal="false"
@@ -329,7 +339,7 @@ async function handleEpayPay(): Promise<void> {
           :disabled="!balanceSufficient || purchaseLimitReached"
           @click="handleBalancePay"
         >
-          {{ t('wallet.subscription.purchase.balancePayBtn') }}
+          {{ props.isUpgrade ? t('wallet.subscription.purchase.upgradeBtn') : t('wallet.subscription.purchase.balancePayBtn') }}
         </ElButton>
       </div>
 

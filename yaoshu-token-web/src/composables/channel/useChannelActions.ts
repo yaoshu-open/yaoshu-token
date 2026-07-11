@@ -198,12 +198,19 @@ export function useChannelActions(options?: {
     }
   }
 
-  /** 测试所有渠道 */
+  /** 测试所有渠道（同步等待，可能耗时 1-5 分钟） */
   async function testAll(): Promise<boolean> {
     setLoading('testAll', true)
     try {
-      await testAllChannels()
-      ElMessage.success(t('channel.actions.testAllSuccess'))
+      const res = await testAllChannels()
+      // 防御性处理：后端可能返回空 {} 或 {total, completed}
+      if (res && typeof res.total === 'number') {
+        ElMessage.success(
+          t('channel.actions.testAllResult', { completed: res.completed, total: res.total })
+        )
+      } else {
+        ElMessage.success(t('channel.actions.testAllSuccess'))
+      }
       onSuccess?.()
       return true
     } catch {

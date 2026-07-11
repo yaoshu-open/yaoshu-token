@@ -79,12 +79,12 @@ export function manageUser(id: number, action: ManageUserAction): Promise<void> 
   return request.post<void>(USER_ENDPOINTS.MANAGE, { id, action })
 }
 
-/** 调整用户额度 */
+/** 调整用户额度（复用 POST /api/user/manage，action=add_quota） */
 export function manageUserQuota(payload: ManageUserQuotaPayload): Promise<void> {
   if (USE_MOCK) {
     return import('./mock').then((m) => m.mockManageUser())
   }
-  return request.post<void>(USER_ENDPOINTS.QUOTA, payload)
+  return request.post<void>(USER_ENDPOINTS.MANAGE, payload)
 }
 
 /** 获取当前用户可用模型列表（Dashboard SetupGuide curl 预览消费）。

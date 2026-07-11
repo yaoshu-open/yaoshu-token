@@ -9,6 +9,8 @@ import {
   getPublicPlans,
   getSelfSubscriptionFull,
   updateBillingPreference,
+  cancelSelfSubscription,
+  enableSelfAutoRenew,
 } from '@/api/subscription'
 import type {
   PlanRecord,
@@ -55,6 +57,11 @@ const loading = ref(false)
 // ---- 购买对话框 ----
 const purchaseDialogVisible = ref(false)
 const selectedPlan = ref<SubscriptionPlan | null>(null)
+const isUpgradeMode = ref(false)
+
+// ---- 取消/开启自动续期 ----
+const cancelling = ref(false)
+const renewing = ref(false)
 
 // ---- 计费偏好 ----
 const billingPreference = ref<string>('wallet_first')
@@ -93,6 +100,27 @@ const hasActiveSubscription = computed(() => {
   )
 })
 
+/** 当前活跃订阅对应的套餐 */
+const activePlan = computed<SubscriptionPlan | null>(() => {
+  if (!hasActiveSubscription.value) return null
+  const activeSub = selfData.value?.subscriptions?.find(
+    (r) => r.subscription.status === 'active'
+  )
+  if (!activeSub) return null
+  return plans.value.find((r) => r.plan.id === activeSub.subscription.planId)?.plan ?? null
+})
+
+/** 判断套餐是否可升级（高于当前等级） */
+function canUpgrade(plan: SubscriptionPlan): boolean {
+  if (!activePlan.value) return true
+  return plan.sortOrder > activePlan.value.sortOrder
+}
+
+/** 判断是否为当前订阅的套餐 */
+function isCurrentPlan(plan: SubscriptionPlan): boolean {
+  return activePlan.value?.id === plan.id
+}
+
 /** 当前展示的订阅（优先活跃，其次过期、取消） */
 const currentSubscription = computed<UserSubscriptionRecord | null>(() => {
   const subs = selfData.value?.subscriptions
@@ -109,6 +137,11 @@ const currentSubscription = computed<UserSubscriptionRecord | null>(() => {
 /** 当前订阅是否为活跃状态 */
 const isSubscriptionActive = computed(
   () => currentSubscription.value?.subscription.status === 'active'
+)
+
+/** 当前订阅是否开启自动续期（默认 true，仅显式 false 才为关闭） */
+const isAutoRenew = computed(
+  () => currentSubscription.value?.subscription.autoRenew !== false
 )
 
 /** 剩余天数 */
@@ -205,6 +238,7 @@ async function handleBillingChange(val: string): Promise<void> {
 // ---- 购买对话框 ----
 function openPurchaseDialog(plan: SubscriptionPlan): void {
   selectedPlan.value = plan
+  isUpgradeMode.value = hasActiveSubscription.value && canUpgrade(plan)
   purchaseDialogVisible.value = true
 }
 
@@ -212,6 +246,62 @@ function handlePurchaseSuccess(): void {
   purchaseDialogVisible.value = false
   emit('purchase-success')
   loadData()
+}
+
+// ---- 关闭自动续期 ----
+async function handleCancelSubscription(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      t('wallet.subscription.plans.cancelConfirmMsg'),
+      t('wallet.subscription.plans.cancelConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+      }
+    )
+  } catch {
+    return
+  }
+  cancelling.value = true
+  try {
+    await cancelSelfSubscription()
+    ElMessage.success(t('wallet.subscription.plans.cancelSuccess'))
+    emit('purchase-success')
+    await loadData()
+  } catch {
+    // 错误由请求拦截器统一提示
+  } finally {
+    cancelling.value = false
+  }
+}
+
+// ---- 重新开启自动续期 ----
+async function handleEnableAutoRenew(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      t('wallet.subscription.plans.enableAutoRenewConfirmMsg'),
+      t('wallet.subscription.plans.enableAutoRenewConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'info',
+      }
+    )
+  } catch {
+    return
+  }
+  renewing.value = true
+  try {
+    await enableSelfAutoRenew()
+    ElMessage.success(t('wallet.subscription.plans.enableAutoRenewSuccess'))
+    emit('purchase-success')
+    await loadData()
+  } catch {
+    // 错误由请求拦截器统一提示
+  } finally {
+    renewing.value = false
+  }
 }
 
 onMounted(() => {
@@ -240,6 +330,8 @@ onUnmounted(() => {
     v-if="plans.length > 0"
     class="subscription-plans"
   >
+    <!-- 我的订阅 + 计费偏好：双列网格填满全宽 -->
+    <div class="subscription-plans__top">
     <!-- 我的订阅区域 -->
     <ElCard
       class="subscription-plans__card"
@@ -273,6 +365,16 @@ onUnmounted(() => {
             effect="light"
           >
             {{ getStatusLabel(currentSubscription.subscription.status) }}
+          </ElTag>
+          <ElTag
+            v-if="isSubscriptionActive"
+            :type="isAutoRenew ? 'success' : 'warning'"
+            size="small"
+            effect="plain"
+          >
+            {{ isAutoRenew
+              ? t('wallet.subscription.plans.status.autoRenewOn')
+              : t('wallet.subscription.plans.status.autoRenewOff') }}
           </ElTag>
           <span class="subscription-plans__sub-plan">
             {{ getPlanTitle(currentSubscription.subscription.planId) }}
@@ -313,6 +415,30 @@ onUnmounted(() => {
               :color="progressColor"
               :show-text="false"
             />
+          </div>
+          <div class="subscription-plans__renew-actions">
+            <ElButton
+              v-if="isAutoRenew"
+              :loading="cancelling"
+              size="small"
+              plain
+              type="warning"
+              @click="handleCancelSubscription"
+            >
+              {{ t('wallet.subscription.plans.cancelSubscription') }}
+            </ElButton>
+            <ElButton
+              v-else
+              :loading="renewing"
+              size="small"
+              type="primary"
+              @click="handleEnableAutoRenew"
+            >
+              {{ t('wallet.subscription.plans.enableAutoRenew') }}
+            </ElButton>
+            <span class="subscription-plans__renew-hint">
+              {{ t('wallet.subscription.plans.autoRenewHint') }}
+            </span>
           </div>
         </template>
       </div>
@@ -363,6 +489,10 @@ onUnmounted(() => {
       </div>
     </ElCard>
 
+    <!-- SPI 扩展点：订阅用量进度卡片（商业版注入，开源版不渲染，auto-fit 自动折叠为2列） -->
+    <slot name="progress" />
+    </div>
+
     <!-- 可用套餐网格 -->
     <div class="subscription-plans__grid">
       <ElCard
@@ -371,15 +501,24 @@ onUnmounted(() => {
         class="subscription-plans__plan"
         :class="{
           'subscription-plans__plan--recommended': index === 0,
+          'subscription-plans__plan--current': isCurrentPlan(record.plan),
         }"
         shadow="hover"
       >
         <!-- 推荐徽章 -->
         <div
-          v-if="index === 0"
+          v-if="index === 0 && !isCurrentPlan(record.plan)"
           class="subscription-plans__recommend"
         >
           {{ t('wallet.subscription.plans.recommend') }}
+        </div>
+
+        <!-- 当前订阅徽章 -->
+        <div
+          v-if="isCurrentPlan(record.plan)"
+          class="subscription-plans__current-badge"
+        >
+          {{ t('wallet.subscription.plans.currentPlan') }}
         </div>
 
         <!-- 套餐标题 -->
@@ -447,12 +586,33 @@ onUnmounted(() => {
 
         <!-- 订阅按钮 -->
         <ElButton
+          v-if="isCurrentPlan(record.plan)"
+          type="info"
+          class="subscription-plans__plan-btn"
+          disabled
+        >
+          {{ t('wallet.subscription.plans.currentPlan') }}
+        </ElButton>
+        <ElButton
+          v-else-if="hasActiveSubscription && !canUpgrade(record.plan)"
+          type="info"
+          class="subscription-plans__plan-btn"
+          disabled
+        >
+          {{ t('wallet.subscription.plans.cannotDowngrade') }}
+        </ElButton>
+        <ElButton
+          v-else
           type="primary"
           class="subscription-plans__plan-btn"
           :disabled="isPurchaseLimitReached(record.plan)"
           @click="openPurchaseDialog(record.plan)"
         >
-          {{ isPurchaseLimitReached(record.plan) ? t('wallet.subscription.plans.purchaseLimitReached') : t('wallet.subscription.plans.subscribeNow') }}
+          {{ isPurchaseLimitReached(record.plan)
+            ? t('wallet.subscription.plans.purchaseLimitReached')
+            : (hasActiveSubscription && canUpgrade(record.plan)
+              ? t('wallet.subscription.plans.upgrade')
+              : t('wallet.subscription.plans.subscribeNow')) }}
         </ElButton>
       </ElCard>
     </div>
@@ -461,6 +621,7 @@ onUnmounted(() => {
     <SubscriptionPurchaseDialog
       v-model:visible="purchaseDialogVisible"
       :plan="selectedPlan"
+      :is-upgrade="isUpgradeMode"
       :enable-stripe="props.topupInfo?.enableStripe"
       :enable-creem="props.topupInfo?.enableCreem"
       :enable-waffo-pancake="props.topupInfo?.enableWaffoPancake"
@@ -478,6 +639,16 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--ys-spacing-4);
+
+  &__top {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--ys-spacing-4);
+
+    @media (width <= 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
 
   &__card {
     border-radius: var(--ys-radius-md);
@@ -576,6 +747,18 @@ onUnmounted(() => {
     color: var(--el-text-color-regular);
   }
 
+  &__renew-actions {
+    display: flex;
+    gap: var(--ys-spacing-3);
+    align-items: center;
+  }
+
+  &__renew-hint {
+    font-size: var(--ys-font-size-xs);
+    line-height: 1.5;
+    color: var(--el-text-color-secondary);
+  }
+
   // ---- 计费偏好选择器 ----
   &__billing {
     display: flex;
@@ -605,7 +788,7 @@ onUnmounted(() => {
   // ---- 可用套餐网格 ----
   &__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 380px));
     gap: var(--ys-spacing-4);
 
     @media (width <= 640px) {
@@ -634,6 +817,10 @@ onUnmounted(() => {
     &--recommended {
       border-color: var(--el-color-primary);
     }
+
+    &--current {
+      border-color: var(--el-color-success);
+    }
   }
 
   &__recommend {
@@ -646,6 +833,19 @@ onUnmounted(() => {
     line-height: 20px;
     color: #fff;
     background: var(--el-color-primary);
+    border-radius: 0 var(--ys-radius-md);
+  }
+
+  &__current-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 2px var(--ys-spacing-3);
+    font-size: var(--ys-font-size-xs);
+    font-weight: 600;
+    line-height: 20px;
+    color: #fff;
+    background: var(--el-color-success);
     border-radius: 0 var(--ys-radius-md);
   }
 

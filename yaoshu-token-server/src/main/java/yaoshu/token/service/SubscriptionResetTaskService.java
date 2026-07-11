@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * 订阅额度重置定时任务  * <p>
  * 每分钟检查一次：
- * 1. 过期订阅 → status=expired
+ * 1. 到期订阅判定：auto_renew 且套餐启用且余额充足 → 自动续期；否则标记 expired + 分组回退
  * 2. 到期重置订阅 → amount_used=0, last_reset_time=now, next_reset_time += period
  * 3. 每 30 分钟清理 7 天前的预扣记录
  * <p>
@@ -31,6 +31,7 @@ public class SubscriptionResetTaskService {
     private final UserSubscriptionMapper userSubscriptionMapper;
     private final SubscriptionPreConsumeRecordMapper preConsumeRecordMapper;
     private final Redis redis;
+    private final SubscriptionPlanService subscriptionPlanService;
 
     /** 每批处理数量*/
     private static final int BATCH_SIZE = 300;
@@ -71,8 +72,12 @@ public class SubscriptionResetTaskService {
     }
 
     /**
-     * 过期订阅      * <p>
-     * 将 end_time < now 且 status=active 的订阅标记为 expired
+     * 到期订阅判定：自动续期或标记过期
+     * <p>
+     * 将 end_time < now 且 status=active 的订阅逐条判定：
+     * - auto_renew=true 且套餐启用且余额充足 → 自动续期（扣费+延长endTime+写order+保持active）
+     * - 否则（auto_renew=false 或套餐下架或余额不足）→ 标记 expired + 分组回退
+     * 每条订阅在独立事务内（subscriptionPlanService 的方法自带 @Transactional），避免单条失败影响其他订阅。
      *
      * @return 本次处理的数量
      */
@@ -92,11 +97,28 @@ public class SubscriptionResetTaskService {
                 break;
             }
             for (UserSubscription sub : subs) {
-                LambdaUpdateWrapper<UserSubscription> uw = new LambdaUpdateWrapper<>();
-                uw.eq(UserSubscription::getId, sub.getId())
-                        .eq(UserSubscription::getStatus, "active")
-                        .set(UserSubscription::getStatus, "expired");
-                userSubscriptionMapper.update(null, uw);
+                try {
+                    boolean autoRenew = sub.getAutoRenew() != null && sub.getAutoRenew();
+                    if (autoRenew) {
+                        // 尝试自动续期
+                        boolean renewed = subscriptionPlanService.renewSubscriptionAutomatically(sub);
+                        if (!renewed) {
+                            // 余额不足/套餐下架，标记过期 + 分组回退
+                            subscriptionPlanService.expireSubscriptionGracefully(sub);
+                            log.info("subscription {} expired (auto_renew failed: insufficient balance or plan disabled), user={}",
+                                    sub.getId(), sub.getUserId());
+                        } else {
+                            log.info("subscription {} auto-renewed, user={}", sub.getId(), sub.getUserId());
+                        }
+                    } else {
+                        // 用户已关闭续期，标记过期 + 分组回退
+                        subscriptionPlanService.expireSubscriptionGracefully(sub);
+                        log.info("subscription {} expired (auto_renew=false), user={}", sub.getId(), sub.getUserId());
+                    }
+                } catch (Exception e) {
+                    // 单条订阅处理失败不中断其他订阅
+                    log.warn("subscription {} expire/renew failed: {}", sub.getId(), e.getMessage());
+                }
             }
             total += subs.size();
             if (subs.size() < BATCH_SIZE) {

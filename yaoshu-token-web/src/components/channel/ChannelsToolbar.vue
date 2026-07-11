@@ -17,6 +17,8 @@ const props = defineProps<{
   isCompact: boolean
   selectedCount: number
   hasSelection: boolean
+  testAllLoading?: boolean
+  updateAllBalanceLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -109,6 +111,9 @@ const group = computed({
           @change="$emit('toggle-compact')"
         />
         <PrimaryButtons
+          :test-all-loading="props.testAllLoading"
+          :update-all-balance-loading="props.updateAllBalanceLoading"
+          :selected-count="selectedCount"
           @add="$emit('add')"
           @test-all="$emit('test-all')"
           @update-all-balance="$emit('update-all-balance')"

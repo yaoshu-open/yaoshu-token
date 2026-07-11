@@ -450,8 +450,22 @@
         "status": {
           "active": "Active",
           "expired": "Expired",
-          "cancelled": "Cancelled"
-        }
+          "cancelled": "Cancelled",
+          "autoRenewOn": "Auto-Renewing",
+          "autoRenewOff": "Renewal Off"
+        },
+        "currentPlan": "Current Plan",
+        "upgrade": "Upgrade",
+        "cannotDowngrade": "Cannot Downgrade",
+        "cancelSubscription": "Turn Off Auto-Renew",
+        "cancelConfirmTitle": "Turn Off Auto-Renew",
+        "cancelConfirmMsg": "After turning off, your subscription will not auto-renew at expiry. You can still use it until the current period ends.",
+        "cancelSuccess": "Auto-renewal turned off",
+        "enableAutoRenew": "Enable Auto-Renew",
+        "enableAutoRenewConfirmTitle": "Enable Auto-Renew",
+        "enableAutoRenewConfirmMsg": "Once enabled, your subscription will auto-renew by charging your wallet balance at expiry.",
+        "enableAutoRenewSuccess": "Auto-renewal enabled",
+        "autoRenewHint": "Will not renew at expiry; current period still usable"
       },
       "purchase": {
         "title": "Purchase Subscription Plan",
@@ -479,7 +493,12 @@
         "payLinkError": "Failed to get payment link",
         "subscribeSuccess": "Subscription successful",
         "purchaseLimitReachedTitle": "Purchase limit reached",
-        "purchaseLimitDesc": "This plan allows up to {limit} purchases. You have purchased {count} times."
+        "purchaseLimitDesc": "This plan allows up to {limit} purchases. You have purchased {count} times.",
+        "upgradeTitle": "Upgrade Confirmation",
+        "upgradeConfirmTitle": "Upgrade",
+        "upgradeConfirmMsg": "Confirm upgrade to this plan with {quota} quota? Your old subscription will be cancelled automatically.",
+        "upgradeSuccess": "Upgrade successful",
+        "upgradeBtn": "Confirm Upgrade"
       }
     }
   },
@@ -1347,9 +1366,9 @@
       "override": "Override",
       "rawInput": "Raw Input",
       "nativeQuota": "Native quota",
-      "amount": "Amount ($)",
+      "amount": "Amount",
       "quotaRaw": "Quota (raw)",
-      "preview": "Preview ($)",
+      "preview": "Preview",
       "adjusted": "Quota adjusted",
       "failed": "Operation failed"
     },
@@ -2140,7 +2159,9 @@
       "addPending": "Edit drawer will be implemented in batch 2",
       "test": "Test",
       "testAll": "Test All",
-      "testAllSuccess": "Full test initiated",
+      "testSelected": "Test Selected ({count})",
+      "testAllSuccess": "Full test completed",
+      "testAllResult": "Full test completed ({completed}/{total} channels tested)",
       "testSuccess": "Test completed",
       "edit": "Edit",
       "editPending": "Edit drawer will be implemented in batch 2",
@@ -2591,6 +2612,7 @@
         "searchPlaceholder": "Filter models...",
         "selectedCount": "{count} models selected",
         "batchTest": "Batch Test",
+        "testAll": "Test All",
         "modelColumn": "Model",
         "statusColumn": "Status",
         "notTested": "Not tested",
@@ -2617,6 +2639,25 @@
         "showDetails": "Show details",
         "summarySuccess": "{count} succeeded",
         "summaryFailed": "{count} failed"
+      },
+      "batchTest": {
+        "title": "Full Test Results",
+        "completed": "Completed",
+        "successCount": "Success",
+        "failedCount": "Failed",
+        "statusChangedCount": "Status Changed",
+        "colChannelName": "Channel",
+        "colTestModel": "Test Model",
+        "colStatus": "Status",
+        "colResponseTime": "Response Time",
+        "colStatusChanged": "Status Changed",
+        "colError": "Error",
+        "success": "Success",
+        "failed": "Failed",
+        "changed": "Changed",
+        "testing": "Testing all channels, please wait...",
+        "loadFailed": "Test request failed, please try again later",
+        "hint": "Only tested channels are listed (manually disabled channels are excluded). Status Changed indicates the channel was auto-disabled or auto-recovered after testing."
       },
       "balance": {
         "title": "Query Balance",

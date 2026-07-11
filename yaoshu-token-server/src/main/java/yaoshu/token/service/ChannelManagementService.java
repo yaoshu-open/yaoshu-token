@@ -842,80 +842,185 @@ public class ChannelManagementService {
         if (!batchChannelTestRunning.compareAndSet(false, true)) {
             throw new IllegalStateException(I18nUtils.get("channel.test_already_running"));
         }
+        List<Channel> channels;
+        List<ChannelBatchTestItem> results;
         try {
             int testUserId = resolveChannelTestUserId(null);
-            List<Channel> channels = channelMapper.selectList(new LambdaQueryWrapper<Channel>()
+            channels = channelMapper.selectList(new LambdaQueryWrapper<Channel>()
                     .orderByAsc(Channel::getId));
-            CompletableFuture.runAsync(() -> {
-                try {
-                    executeAllChannelTests(channels, testUserId);
-                } finally {
-                    batchChannelTestRunning.set(false);
-                }
-            });
+            // 并发执行所有渠道测试，等待全部完成后返回各渠道测试结果
+            results = executeAllChannelTestsConcurrently(channels, testUserId);
         } catch (RuntimeException e) {
             batchChannelTestRunning.set(false);
             throw e;
+        } finally {
+            batchChannelTestRunning.set(false);
         }
 
-        return new LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", channels.size());
+        result.put("completed", channels.size());
+        result.put("results", results);
+        return result;
     }
 
-    private void executeAllChannelTests(List<Channel> channels, int testUserId) {
-        boolean cacheRefreshNeeded = false;
+    /**
+     * 按 ID 列表批量测试指定渠道。
+     * <p>
+     * 仅测试传入 ids 对应的渠道，手动禁用渠道被过滤不参与测试。
+     * 与全量测试共用 {@code batchChannelTestRunning} 互斥标志，避免并发测试相互干扰缓存与状态。
+     * 不向 Root 用户发送"全量测试完成"通知（定向测试非全量巡检）。
+     * 返回 {total=传入ids数, completed=完成数, results=各渠道测试明细}，
+     * results 仅含实际被测渠道，故 results.length 可能小于 total。
+     */
+    public Map<String, Object> testChannelsByIds(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
+        }
+        if (!batchChannelTestRunning.compareAndSet(false, true)) {
+            throw new IllegalStateException(I18nUtils.get("channel.test_already_running"));
+        }
+        List<Channel> channels;
+        List<ChannelBatchTestItem> results;
+        try {
+            int testUserId = resolveChannelTestUserId(null);
+            channels = channelMapper.selectList(new LambdaQueryWrapper<Channel>()
+                    .in(Channel::getId, ids)
+                    .orderByAsc(Channel::getId));
+            if (channels.isEmpty()) {
+                throw new ResultException(R.errorPrompt(I18nUtils.get("channel.not_exists")));
+            }
+            // 定向测试不发 Root 通知
+            results = executeChannelTestsConcurrently(channels, testUserId, false);
+        } catch (RuntimeException e) {
+            batchChannelTestRunning.set(false);
+            throw e;
+        } finally {
+            batchChannelTestRunning.set(false);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", ids.size());
+        result.put("completed", channels.size());
+        result.put("results", results);
+        return result;
+    }
+
+    /**
+     * 并发执行所有渠道测试，等待全部完成后返回各渠道测试结果。
+     * <p>
+     * 每个渠道测试作为独立任务提交到公共 ForkJoinPool，通过 CompletableFuture.allOf 等待全部完成。
+     * 渠道状态变更（自动禁用/恢复）和缓存刷新在所有测试完成后统一处理。
+     * 返回结果仅含实际被测渠道（手动禁用渠道被过滤），顺序按渠道 id 升序。
+     */
+    private List<ChannelBatchTestItem> executeAllChannelTestsConcurrently(List<Channel> channels, int testUserId) {
+        return executeChannelTestsConcurrently(channels, testUserId, true);
+    }
+
+    /**
+     * 并发执行渠道测试的通用内部方法，等待全部完成后返回各渠道测试结果。
+     * <p>
+     * 手动禁用渠道被过滤不参与测试；notifyRoot 控制是否向 Root 用户发送"全量测试完成"通知
+     * （全量测试发通知，按 ID 列表定向测试不发）。所有测试完成后统一刷新缓存。
+     * 返回结果仅含实际被测渠道，顺序保持入参顺序。
+     */
+    private List<ChannelBatchTestItem> executeChannelTestsConcurrently(List<Channel> channels, int testUserId, boolean notifyRoot) {
         long disableThresholdMillis = resolveChannelDisableThresholdMillis();
-        for (Channel channel : channels) {
-            if (Objects.equals(channel.getStatus(), CommonConstants.CHANNEL_STATUS_MANUALLY_DISABLED)) {
-                continue;
-            }
-
-            boolean channelEnabled = Objects.equals(channel.getStatus(), CommonConstants.CHANNEL_STATUS_ENABLED);
-            ChannelTestExecutionResult result = executeChannelTest(
-                    channel,
-                    testUserId,
-                    null,
-                    null,
-                    shouldUseStreamForAutomaticChannelTest(channel)
+        // 并发收集测试结果
+        List<CompletableFuture<ChannelBatchTestItem>> futures = channels.stream()
+                .filter(channel -> !Objects.equals(channel.getStatus(), CommonConstants.CHANNEL_STATUS_MANUALLY_DISABLED))
+                .map(channel -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return executeSingleChannelTestInBatch(channel, testUserId, disableThresholdMillis);
+                    } catch (Exception e) {
+                        log.warn("渠道测试异常 channelId={} name={}: {}", channel.getId(), channel.getName(), e.getMessage());
+                        // 异常时仍返回失败条目，保证结果完整性
+                        return new ChannelBatchTestItem(
+                                channel.getId(),
+                                channel.getName(),
+                                resolveChannelTestModel(channel, null),
+                                false,
+                                0L,
+                                false,
+                                e.getMessage()
+                        );
+                    }
+                }))
+                .toList();
+        // 等待全部完成
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        // 所有测试完成后统一刷新缓存
+        refreshChannelCache();
+        if (notifyRoot) {
+            userNotifyService.notifyRootUser(
+                    UserNotifyService.EVENT_CHANNEL_TEST,
+                    I18nUtils.get("channel.test_completed"),
+                    I18nUtils.get("channel.all_tests_completed")
             );
-            updateChannelTestMetrics(channel, result.elapsedMilliseconds());
+        }
+        return futures.stream().map(CompletableFuture::join).toList();
+    }
 
-            RelayException effectiveError = result.newApiError();
-            boolean shouldDisableChannel = shouldDisableChannel(effectiveError);
-            if (effectiveError == null
-                    && CommonConstants.automaticDisableChannelEnabled
-                    && result.elapsedMilliseconds() > disableThresholdMillis) {
-                String message = I18nUtils.get("distributor.response_time_exceeded",
-                        String.format("%.2f", toSeconds(result.elapsedMilliseconds())),
-                        String.format("%.2f", toSeconds(disableThresholdMillis)));
-                effectiveError = newApiError(message, ErrorCode.CHANNEL_RESPONSE_TIME_EXCEEDED, 408);
-                shouldDisableChannel = true;
-            }
+    /**
+     * 批量测试中单个渠道的测试逻辑（并发安全）。
+     * 每个渠道独立执行测试、更新指标、处理自动禁用/恢复。
+     */
+    private ChannelBatchTestItem executeSingleChannelTestInBatch(Channel channel, int testUserId, long disableThresholdMillis) {
+        boolean channelEnabled = Objects.equals(channel.getStatus(), CommonConstants.CHANNEL_STATUS_ENABLED);
+        ChannelTestExecutionResult result = executeChannelTest(
+                channel,
+                testUserId,
+                null,
+                null,
+                shouldUseStreamForAutomaticChannelTest(channel)
+        );
+        updateChannelTestMetrics(channel, result.elapsedMilliseconds());
 
-            if (channelEnabled && shouldDisableChannel && isAutoBanEnabled(channel)) {
-                if (updateChannelStatus(channel, CommonConstants.CHANNEL_STATUS_AUTO_DISABLED)) {
-                    cacheRefreshNeeded = true;
-                    notifyChannelStatusChanged(channel, CommonConstants.CHANNEL_STATUS_AUTO_DISABLED,
-                            effectiveError == null ? I18nUtils.get("channel.test_failed") : effectiveError.getMessage());
-                }
-            }
-
-            if (!channelEnabled && shouldEnableChannel(effectiveError, channel.getStatus())) {
-                if (updateChannelStatus(channel, CommonConstants.CHANNEL_STATUS_ENABLED)) {
-                    cacheRefreshNeeded = true;
-                    notifyChannelStatusChanged(channel, CommonConstants.CHANNEL_STATUS_ENABLED, "");
-                }
-            }
-
-            sleepBetweenChannelTests();
+        RelayException effectiveError = result.newApiError();
+        boolean shouldDisableChannel = shouldDisableChannel(effectiveError);
+        if (effectiveError == null
+                && CommonConstants.automaticDisableChannelEnabled
+                && result.elapsedMilliseconds() > disableThresholdMillis) {
+            String message = I18nUtils.get("distributor.response_time_exceeded",
+                    String.format("%.2f", toSeconds(result.elapsedMilliseconds())),
+                    String.format("%.2f", toSeconds(disableThresholdMillis)));
+            effectiveError = newApiError(message, ErrorCode.CHANNEL_RESPONSE_TIME_EXCEEDED, 408);
+            shouldDisableChannel = true;
         }
 
-        if (cacheRefreshNeeded) {
-            refreshChannelCache();
+        // 追踪测试后渠道状态是否变更（自动禁用/自动恢复）
+        boolean statusChanged = false;
+        if (channelEnabled && shouldDisableChannel && isAutoBanEnabled(channel)) {
+            if (updateChannelStatus(channel, CommonConstants.CHANNEL_STATUS_AUTO_DISABLED)) {
+                statusChanged = true;
+                notifyChannelStatusChanged(channel, CommonConstants.CHANNEL_STATUS_AUTO_DISABLED,
+                        effectiveError == null ? I18nUtils.get("channel.test_failed") : effectiveError.getMessage());
+            }
         }
-        userNotifyService.notifyRootUser(
-                UserNotifyService.EVENT_CHANNEL_TEST,
-                I18nUtils.get("channel.test_completed"),
-                I18nUtils.get("channel.all_tests_completed")
+
+        if (!channelEnabled && shouldEnableChannel(effectiveError, channel.getStatus())) {
+            if (updateChannelStatus(channel, CommonConstants.CHANNEL_STATUS_ENABLED)) {
+                statusChanged = true;
+                notifyChannelStatusChanged(channel, CommonConstants.CHANNEL_STATUS_ENABLED, "");
+            }
+        }
+
+        // 组装单渠道测试结果条目，testModel 与 executeChannelTest 内部解析逻辑一致
+        String testModel = resolveChannelTestModel(channel, null);
+        String error = null;
+        if (!result.success()) {
+            error = result.localError() == null
+                    ? I18nUtils.get("channel.test_failed")
+                    : result.localError().getMessage();
+        }
+        return new ChannelBatchTestItem(
+                channel.getId(),
+                channel.getName(),
+                testModel,
+                result.success(),
+                result.elapsedMilliseconds(),
+                statusChanged,
+                error
         );
     }
 
@@ -3310,6 +3415,20 @@ public class ChannelManagementService {
                                                           long elapsedMilliseconds) {
             return new ChannelTestExecutionResult(false, localError, newApiError, elapsedMilliseconds, null, null);
         }
+    }
+
+    /**
+     * 批量渠道测试的单个渠道结果条目，聚合测试结果与状态变更追踪。
+     * <p>
+     * responseTime 单位为毫秒；statusChanged 表示测试后渠道是否触发自动禁用/恢复。
+     */
+    private record ChannelBatchTestItem(int channelId,
+                                        String channelName,
+                                        String testModel,
+                                        boolean success,
+                                        long responseTime,
+                                        boolean statusChanged,
+                                        String error) {
     }
 
     private record PendingUpstreamModelChanges(List<String> pendingAddModels, List<String> pendingRemoveModels) {

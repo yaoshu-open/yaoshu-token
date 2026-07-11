@@ -60,6 +60,8 @@ export interface UserSubscription {
   amountTotal: number
   amountUsed: number
   nextResetTime?: number
+  /** 是否自动续期（true=到期自动扣费续期，false=已关闭续期，到期自然失效） */
+  autoRenew?: boolean
 }
 
 export interface UserSubscriptionRecord {

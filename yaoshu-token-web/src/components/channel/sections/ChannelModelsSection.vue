@@ -6,14 +6,14 @@ import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElButton, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
-import { getAllModels, getGroups, fetchModels } from '@/api/channel'
+import { getAllModels, getGroups, fetchModels, fetchUpstreamModels } from '@/api/channel'
 import { MODEL_FETCHABLE_TYPES } from '@/api/channel/constants'
 import { useChannelMutateFormContext } from '@/composables/channel/useChannelMutateForm'
 import { parseModelsString, formatModelsArray } from '@/lib/channel/channel-form'
 import FetchModelsDialog from '../dialogs/FetchModelsDialog.vue'
 
 const { t } = useI18n()
-const { form, errors } = useChannelMutateFormContext()
+const { form, errors, isEditing, editingChannelId } = useChannelMutateFormContext()
 
 // ============================================================================
 // 选项数据
@@ -52,11 +52,15 @@ const fetchedModels = ref<string[]>([])
 async function handleFetchModels(): Promise<void> {
   fetchLoading.value = true
   try {
-    const res = await fetchModels({
-      baseUrl: form.base_url,
-      type: form.type,
-      key: form.key
-    })
+    // 编辑模式：用 GET /api/channel/fetch_models/{id}（后端从DB读真实key）
+    // 创建模式：用 POST /api/channel/fetch_models（body传用户输入的key）
+    const res = isEditing.value && editingChannelId.value != null
+      ? await fetchUpstreamModels(editingChannelId.value)
+      : await fetchModels({
+          baseUrl: form.base_url,
+          type: form.type,
+          key: form.key
+        })
     fetchedModels.value = res
     fetchDialogVisible.value = true
   } catch {

@@ -11,6 +11,7 @@ import type {
   BatchSetTagParams,
   Channel,
   ChannelBalanceResponse,
+  ChannelBatchTestResponse,
   ChannelModel,
   ChannelModelsResponse,
   ChannelTestResponse,
@@ -399,8 +400,30 @@ export function mockDeleteOllamaModel(params: {
   return Promise.resolve()
 }
 
-export function mockTestAllChannels(): Promise<void> {
-  return Promise.resolve()
+export function mockTestAllChannels(): Promise<ChannelBatchTestResponse> {
+  return Promise.resolve({
+    total: 3,
+    completed: 3,
+    results: [
+      { channelId: 1, channelName: 'DeepSeek', testModel: 'deepseek-v4-flash', success: true, responseTime: 2300, statusChanged: false, error: null },
+      { channelId: 2, channelName: 'vveai-中转', testModel: 'claude-opus-4-8', success: false, responseTime: 5000, statusChanged: true, error: 'connect timeout' },
+      { channelId: 3, channelName: 'Ollama本地', testModel: 'gpt-4o-mini', success: true, responseTime: 800, statusChanged: false, error: null },
+    ],
+  })
+}
+
+export function mockTestChannelsByIds(ids: number[]): Promise<ChannelBatchTestResponse> {
+  const allResults = [
+    { channelId: 1, channelName: 'DeepSeek', testModel: 'deepseek-v4-flash', success: true, responseTime: 2300, statusChanged: false, error: null },
+    { channelId: 2, channelName: 'vveai-中转', testModel: 'claude-opus-4-8', success: false, responseTime: 5000, statusChanged: true, error: 'connect timeout' },
+    { channelId: 3, channelName: 'Ollama本地', testModel: 'gpt-4o-mini', success: true, responseTime: 800, statusChanged: false, error: null },
+  ]
+  const results = allResults.filter((r) => ids.includes(r.channelId))
+  return Promise.resolve({
+    total: ids.length,
+    completed: results.length,
+    results,
+  })
 }
 
 export function mockUpdateAllChannelsBalance(): Promise<void> {

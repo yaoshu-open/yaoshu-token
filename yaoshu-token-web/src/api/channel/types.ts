@@ -160,6 +160,25 @@ export interface ChannelTestResponse {
   time?: number
 }
 
+// 批量渠道测试单条结果（对齐后端 ChannelBatchTestItem record）
+export interface ChannelBatchTestItem {
+  channelId: number
+  channelName: string
+  testModel: string
+  success: boolean
+  responseTime: number
+  statusChanged: boolean
+  error: string | null
+}
+
+// 批量渠道测试响应：GET /api/channel/test
+// results 仅含实际被测渠道（手动禁用渠道被过滤），故 results.length 可能小于 total
+export interface ChannelBatchTestResponse {
+  total: number
+  completed: number
+  results: ChannelBatchTestItem[]
+}
+
 // channel 余额查询成功响应：flag=true 时 Result.data，仅返回余额
 // 失败由后端抛异常（flag:false + msg），经拦截器 reject，消费方走 catch
 export interface ChannelBalanceResponse {

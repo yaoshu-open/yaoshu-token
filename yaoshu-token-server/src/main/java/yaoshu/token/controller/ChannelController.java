@@ -102,6 +102,11 @@ public class ChannelController {
         return runResponseAction(channelManagementService::testAllChannelsAsync);
     }
 
+    @PostMapping("/test/batch")
+    public Result<?> testBatch(@Valid @RequestBody ChannelIPO.BatchTest ipo) {
+        return runResponseAction(() -> channelManagementService.testChannelsByIds(ipo.getIds()));
+    }
+
     @GetMapping("/test/{id}")
     public Result<?> test(@PathVariable int id, HttpServletRequest request) {
         return runResponseAction(() -> channelManagementService.testChannel(id, request));

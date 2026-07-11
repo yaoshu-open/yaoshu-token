@@ -145,12 +145,14 @@ onMounted(refreshWallet)
 <template>
   <div class="wallet-page">
     <div class="wallet-page__hero">
-      <h1 class="wallet-page__title">
-        {{ t('nav.wallet') }}
-      </h1>
-      <p class="wallet-page__desc">
-        {{ t('wallet.description') }}
-      </p>
+      <div class="wallet-page__hero-text">
+        <h1 class="wallet-page__title">
+          {{ t('nav.wallet') }}
+        </h1>
+        <p class="wallet-page__desc">
+          {{ t('wallet.description') }}
+        </p>
+      </div>
       <ElButton
         text
         type="primary"
@@ -165,15 +167,16 @@ onMounted(refreshWallet)
       :loading="userLoading"
     />
 
-    <!-- SPI 扩展点：定制实现注入订阅用量进度卡片，无注入时不渲染 -->
-    <SpiSlot name="wallet-subscription" />
-
-    <!-- 订阅套餐展示+购买（后端 API 已就绪，Vue3 迁移阶段二 SUB-02） -->
+    <!-- 订阅套餐展示+购买（SPI 进度卡通过 slot 注入3列信息行） -->
     <SubscriptionPlansCard
       :topup-info="topupInfo"
       :user-quota="user?.quota ?? 0"
       @purchase-success="refreshWallet"
-    />
+    >
+      <template #progress>
+        <SpiSlot name="wallet-subscription" />
+      </template>
+    </SubscriptionPlansCard>
 
     <div class="wallet-page__grid">
       <RechargeFormCard
@@ -226,6 +229,14 @@ onMounted(refreshWallet)
   padding: var(--ys-spacing-8) var(--ys-spacing-6);
 
   &__hero {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--ys-spacing-4);
+  }
+
+  &__hero-text {
     display: flex;
     flex-direction: column;
     gap: var(--ys-spacing-2);

@@ -102,11 +102,12 @@ export type ManageUserAction =
   | 'disable'
   | 'delete'
 
-/** 额度调整参数 */
+/** 额度调整参数（POST /api/user/manage，action=add_quota） */
 export interface ManageUserQuotaPayload {
-  userId: number
-  quota: number
-  action: 'add' | 'subtract' | 'override'
+  id: number
+  action: 'add_quota'
+  value: number
+  mode: 'add' | 'subtract' | 'override'
 }
 
 /** 用户可用模型列表项（GET /api/user/models） */

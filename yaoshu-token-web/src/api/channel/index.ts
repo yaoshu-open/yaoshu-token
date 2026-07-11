@@ -15,6 +15,7 @@ import type {
   BatchSetTagParams,
   Channel,
   ChannelBalanceResponse,
+  ChannelBatchTestResponse,
   ChannelModel,
   ChannelModelsResponse,
   ChannelTestResponse,
@@ -444,12 +445,20 @@ export function deleteOllamaModel(params: {
   })
 }
 
-/** 测试所有启用渠道 */
-export function testAllChannels(): Promise<void> {
+/** 测试所有启用渠道（同步等待全部完成，可能耗时 1-5 分钟） */
+export function testAllChannels(): Promise<ChannelBatchTestResponse> {
   if (USE_MOCK) {
     return import('./mock').then((m) => m.mockTestAllChannels())
   }
-  return request.get<void>(CHANNEL_ENDPOINTS.TEST_ALL)
+  return request.get<ChannelBatchTestResponse>(CHANNEL_ENDPOINTS.TEST_ALL)
+}
+
+/** 按 ID 列表批量测试渠道（仅测试传入的渠道，与全量测试互斥） */
+export function testChannelsByIds(ids: number[]): Promise<ChannelBatchTestResponse> {
+  if (USE_MOCK) {
+    return import('./mock').then((m) => m.mockTestChannelsByIds(ids))
+  }
+  return request.post<ChannelBatchTestResponse>(CHANNEL_ENDPOINTS.TEST_BATCH, { ids })
 }
 
 /** 更新所有启用渠道余额 */

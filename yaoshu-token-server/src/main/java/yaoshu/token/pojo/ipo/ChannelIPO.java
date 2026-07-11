@@ -239,6 +239,12 @@ public class ChannelIPO {
     }
 
     @Data
+    public static class BatchTest {
+        @NotEmpty(message = "ids不能为空")
+        private List<Integer> ids;
+    }
+
+    @Data
     public static class MultiKeyManage {
         @NotNull(message = "channelId不能为空")
         private Integer channelId;

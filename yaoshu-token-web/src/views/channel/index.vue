@@ -15,6 +15,7 @@ import EditTagDialog from '@/components/channel/EditTagDialog.vue'
 import TagBatchEditDialog from '@/components/channel/dialogs/TagBatchEditDialog.vue'
 import ChannelMutateDrawer from '@/components/channel/ChannelMutateDrawer.vue'
 import ChannelTestDialog from '@/components/channel/dialogs/ChannelTestDialog.vue'
+import ChannelBatchTestResultDialog from '@/components/channel/dialogs/ChannelBatchTestResultDialog.vue'
 import ChannelKeyDialog from '@/components/channel/dialogs/ChannelKeyDialog.vue'
 import BalanceQueryDialog from '@/components/channel/dialogs/BalanceQueryDialog.vue'
 import CopyChannelDialog from '@/components/channel/dialogs/CopyChannelDialog.vue'
@@ -35,12 +36,14 @@ import {
   fetchUpstreamModels,
   fixChannelAbilities,
   testAllChannels,
+  testChannelsByIds,
   updateAllChannelsBalance,
   updateChannel
 } from '@/api/channel'
 import { CHANNELS_TABLE_PAGE_SIZE_OPTIONS, CHANNEL_STATUS, MODEL_FETCHABLE_TYPES } from '@/api/channel/constants'
 import { parseUpstreamUpdateMeta } from '@/lib/channel/upstream-update-utils'
 import type { Channel } from '@/api/channel/types'
+import type { ChannelBatchTestResponse } from '@/api/channel/types'
 
 const { t } = useI18n()
 const isMobile = useMobile()
@@ -312,28 +315,59 @@ function handleBatchDisable(): void {
 // 主操作
 // ============================================================================
 
+const testAllLoading = ref(false)
+const testAllResultVisible = ref(false)
+const testAllResultData = ref<ChannelBatchTestResponse | null>(null)
+const testAllResultLoading = ref(false)
+const testAllResultError = ref(false)
+const updateAllBalanceLoading = ref(false)
+
 function handleAdd(): void {
   editingChannelId.value = null
   editDrawerOpen.value = true
 }
 
 async function handleTestAll(): Promise<void> {
+  // 立即弹窗 + loading 态，让用户知道测试已触发
+  testAllResultData.value = null
+  testAllResultError.value = false
+  testAllResultLoading.value = true
+  testAllResultVisible.value = true
+  testAllLoading.value = true
   try {
-    await testAllChannels()
-    ElMessage.success(t('channel.actions.testAllSuccess'))
-    fetchChannels()
+    // 选中渠道时调用按 ID 列表批量测试，未选中时调用全量测试
+    const hasSelection = selectedIds.value.length > 0
+    const res = hasSelection
+      ? await testChannelsByIds(selectedIds.value)
+      : await testAllChannels()
+    if (res && typeof res.total === 'number') {
+      ElMessage.success(t('channel.actions.testAllResult', { completed: res.completed, total: res.total }))
+      if (res.results?.length) {
+        testAllResultData.value = res
+      }
+    } else {
+      ElMessage.success(t('channel.actions.testAllSuccess'))
+    }
+    await fetchChannels()
   } catch {
+    testAllResultError.value = true
     ElMessage.error(t('common.operationFailed'))
+  } finally {
+    testAllResultLoading.value = false
+    testAllLoading.value = false
   }
 }
 
 async function handleUpdateAllBalance(): Promise<void> {
+  updateAllBalanceLoading.value = true
   try {
     await updateAllChannelsBalance()
     ElMessage.success(t('channel.actions.updateAllBalanceSuccess'))
-    fetchChannels()
+    await fetchChannels()
   } catch {
     ElMessage.error(t('common.operationFailed'))
+  } finally {
+    updateAllBalanceLoading.value = false
   }
 }
 
@@ -403,6 +437,8 @@ function onSortChange(payload: { prop: string; order: 'ascending' | 'descending'
       :is-compact="isCompact"
       :selected-count="selectedCount"
       :has-selection="hasSelection"
+      :test-all-loading="testAllLoading"
+      :update-all-balance-loading="updateAllBalanceLoading"
       @update:filters="(val) => Object.assign(filters, val)"
       @search="handleSearch"
       @reset-filters="handleResetFilters"
@@ -485,6 +521,14 @@ function onSortChange(payload: { prop: string; order: 'ascending' | 'descending'
     <ChannelTestDialog
       v-model="testDialogOpen"
       :channel="testDialogChannel"
+    />
+
+    <!-- 批量渠道测试结果摘要对话框 -->
+    <ChannelBatchTestResultDialog
+      v-model:visible="testAllResultVisible"
+      :data="testAllResultData"
+      :loading="testAllResultLoading"
+      :error="testAllResultError"
     />
 
     <!-- 余额查询对话框（T-CH-05 第三批） -->

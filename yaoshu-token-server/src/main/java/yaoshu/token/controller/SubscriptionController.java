@@ -125,6 +125,20 @@ public class SubscriptionController {
         return R.success(null);
     }
 
+    @PostMapping("/subscription/self/cancel")
+    public Result<?> cancelSelfSubscription(HttpServletRequest request) {
+        Integer userId = getUserId(request);
+        List<UserSubscription> cancelled = subscriptionPlanService.cancelSelfSubscription(userId);
+        return R.success(wrapSubscriptions(cancelled));
+    }
+
+    @PostMapping("/subscription/self/renew/enable")
+    public Result<?> enableSelfAutoRenew(HttpServletRequest request) {
+        Integer userId = getUserId(request);
+        List<UserSubscription> renewed = subscriptionPlanService.enableSelfAutoRenew(userId);
+        return R.success(wrapSubscriptions(renewed));
+    }
+
     @PostMapping("/subscription/epay/pay")
     public Result<?> requestEpay(HttpServletRequest request,
                                            @Valid @RequestBody SubscriptionEpayPayRequest body) {

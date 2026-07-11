@@ -42,6 +42,11 @@ public class UserSubscription {
     
     private String source;
 
+    /**
+     * 是否自动续期：true=自动续期，false=已关闭续期（到期不续），默认 true
+     */
+    private Boolean autoRenew;
+
     private Long lastResetTime;
 
     private Long nextResetTime;

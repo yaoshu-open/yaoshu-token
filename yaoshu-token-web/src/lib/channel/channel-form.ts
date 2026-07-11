@@ -496,6 +496,11 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
   return { mode: 'single', channel }
 }
 
+/** 检测 key 是否为后端掩码（如 sk-****XXXX），掩码 key 不应回传保存 */
+function isMaskedKey(key: string): boolean {
+  return key.includes('****')
+}
+
 /** 表单 → 更新渠道 API 载荷 */
 export function transformFormDataToUpdatePayload(
   formData: ChannelFormValues,
@@ -526,8 +531,8 @@ export function transformFormDataToUpdatePayload(
     uaOverrideMode: formData.ua_override_mode
   }
 
-  // 仅当密钥非空时包含（编辑时不强制重设密钥）
-  if (formData.key && formData.key.trim()) {
+  // 仅当密钥非空且非掩码时包含（编辑时后端返回掩码key，回传会覆盖真实key）
+  if (formData.key && formData.key.trim() && !isMaskedKey(formData.key)) {
     payload.key = formData.key
   }
 

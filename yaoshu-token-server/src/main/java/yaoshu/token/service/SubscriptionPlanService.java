@@ -283,6 +283,52 @@ public class SubscriptionPlanService {
                         .eq(UserSubscription::getPlanId, planId));
     }
 
+    // ======================== 单订阅限制与购买判定 ========================
+
+    /** 购买类型 */
+    public enum PurchaseType { NEW, RENEW, UPGRADE }
+
+    /**
+     * 判定用户购买指定套餐时的购买类型（单订阅限制核心校验）
+     * <p>
+     * 单订阅模型：用户同一时间只能持有1个活跃订阅。
+     * - 无活跃订阅 → NEW
+     * - 同套餐 → RENEW（续期）
+     * - 不同套餐 + sortOrder 更高 → UPGRADE（升级）
+     * - 不同套餐 + sortOrder 不更高 → 拒绝（抛 ResultException）
+     *
+     * @return 购买类型，旧订阅信息通过返回的 PurchaseContext 附带
+     */
+    public PurchaseContext validateSubscriptionPurchase(int userId, int newPlanId) {
+        if (userId <= 0 || newPlanId <= 0) {
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
+        }
+        SubscriptionPlan newPlan = getPlanById(newPlanId);
+        List<UserSubscription> activeSubs = listActiveUserSubscriptions(userId);
+        if (activeSubs.isEmpty()) {
+            return new PurchaseContext(PurchaseType.NEW, null, null);
+        }
+        // 取 endTime 最晚的活跃订阅作为当前订阅
+        UserSubscription currentSub = activeSubs.get(0);
+        SubscriptionPlan currentPlan = getPlanById(currentSub.getPlanId());
+
+        if (currentSub.getPlanId().equals(newPlanId)) {
+            return new PurchaseContext(PurchaseType.RENEW, currentSub, currentPlan);
+        }
+
+        int newSortOrder = newPlan.getSortOrder() == null ? 0 : newPlan.getSortOrder();
+        int currentSortOrder = currentPlan.getSortOrder() == null ? 0 : currentPlan.getSortOrder();
+
+        if (newSortOrder > currentSortOrder) {
+            return new PurchaseContext(PurchaseType.UPGRADE, currentSub, currentPlan);
+        }
+
+        throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.cancel_current_first")));
+    }
+
+    /** 购买判定上下文，携带旧订阅与旧套餐信息供调用方使用 */
+    public record PurchaseContext(PurchaseType type, UserSubscription currentSub, SubscriptionPlan currentPlan) {}
+
     // ======================== 余额购买 / 管理绑定 ========================
 
     @Transactional(rollbackFor = Exception.class)
@@ -300,7 +346,21 @@ public class SubscriptionPlanService {
         if (!Boolean.TRUE.equals(plan.getAllowBalancePay())) {
             throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.balance_not_allowed")));
         }
-        int requiredQuota = calcSubscriptionBalanceQuota(plan.getPriceAmount());
+
+        // 单订阅校验：判定购买类型（NEW/RENEW/UPGRADE）
+        PurchaseContext ctx = validateSubscriptionPurchase(userId, planId);
+
+        // 计算扣费金额：新购/续期扣全额，升级扣差价
+        double chargeAmount = plan.getPriceAmount();
+        if (ctx.type() == PurchaseType.UPGRADE && ctx.currentPlan() != null) {
+            double oldPrice = ctx.currentPlan().getPriceAmount() == null ? 0D : ctx.currentPlan().getPriceAmount();
+            chargeAmount = plan.getPriceAmount() - oldPrice;
+            if (chargeAmount < 0) {
+                chargeAmount = 0;
+            }
+        }
+
+        int requiredQuota = calcSubscriptionBalanceQuota(chargeAmount);
         User user = lockUser(userId);
         long currentQuota = user.getQuota() == null ? 0 : user.getQuota();
         if (requiredQuota > 0 && currentQuota < requiredQuota) {
@@ -314,23 +374,29 @@ public class SubscriptionPlanService {
         long now = now();
         order.setUserId(userId);
         order.setPlanId(plan.getId());
-        order.setMoney(plan.getPriceAmount());
+        order.setMoney(chargeAmount);
         order.setTradeNo(String.format("SUBBALUSR%dNO%s%d", userId, RandomUtil.randomLettersAndNumbers(6), System.nanoTime()));
         order.setPaymentMethod("balance");
         order.setPaymentProvider("balance");
         order.setStatus(CommonConstants.TOP_UP_STATUS_SUCCESS);
         order.setCreateTime(now);
         order.setCompleteTime(now);
-        order.setProviderPayload("charged_quota=" + requiredQuota);
+        order.setProviderPayload("charged_quota=" + requiredQuota + ",purchase_type=" + ctx.type());
         orderMapper.insert(order);
-        recordTopupLog(userId, String.format("使用余额购买订阅成功，套餐: %s，支付金额: %.2f，扣除额度: %d",
-                plan.getTitle(), plan.getPriceAmount(), requiredQuota));
+        String logMsg = String.format("余额购买订阅成功，套餐: %s，支付金额: %.2f，扣除额度: %d，购买类型: %s",
+                plan.getTitle(), chargeAmount, requiredQuota, ctx.type());
+        recordTopupLog(userId, logMsg);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public SubscriptionOrder createPendingEpayOrder(int userId, int planId, String paymentMethod) {
         if (userId <= 0 || planId <= 0) {
             throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
+        }
+        // 单订阅校验：外部支付不支持升级
+        PurchaseContext ctx = validateSubscriptionPurchase(userId, planId);
+        if (ctx.type() == PurchaseType.UPGRADE) {
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.upgrade_balance_only")));
         }
         SubscriptionPlan plan = lockPlan(planId);
         if (!Boolean.TRUE.equals(plan.getEnabled())) {
@@ -369,6 +435,11 @@ public class SubscriptionPlanService {
         }
         if (StrUtil.isBlank(paymentMethod) || StrUtil.isBlank(paymentProvider) || StrUtil.isBlank(tradeNo)) {
             throw new ResultException(R.errorPrompt(I18nUtils.get("topup.payment_params_error")));
+        }
+        // 单订阅校验：外部支付不支持升级
+        PurchaseContext ctx = validateSubscriptionPurchase(userId, planId);
+        if (ctx.type() == PurchaseType.UPGRADE) {
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.upgrade_balance_only")));
         }
         SubscriptionPlan plan = lockPlan(planId);
         if (!Boolean.TRUE.equals(plan.getEnabled())) {
@@ -529,6 +600,153 @@ public class SubscriptionPlanService {
         return target.isEmpty() ? "" : "用户分组将回退到 " + target;
     }
 
+    // ======================== 用户取消订阅 ========================
+
+    /**
+     * 自动续期单个到期订阅（由定时任务调用）
+     * <p>
+     * 前置条件：订阅 status=active 且 endTime≤now 且 auto_renew=true。
+     * 扣费按当前 plan.priceAmount（余额扣费），延长 endTime（追加一个周期），写入 order(type=auto_renew)，
+     * 保持 status=active。余额不足/套餐下架时不续期，由调用方标记 expired + 分组回退。
+     *
+     * @param sub  到期订阅（需含 planId/userId）
+     * @return 续期成功返回 true，余额不足或套餐下架返回 false
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean renewSubscriptionAutomatically(UserSubscription sub) {
+        if (sub == null || sub.getPlanId() == null || sub.getUserId() == null) {
+            return false;
+        }
+        SubscriptionPlan plan = getPlanById(sub.getPlanId());
+        if (plan == null || !Boolean.TRUE.equals(plan.getEnabled())) {
+            // 套餐下架/删除，不续期
+            return false;
+        }
+        // 扣费额度 = 价格 × quotaPerUnit（与余额购买订阅一致）
+        int requiredQuota = calcSubscriptionBalanceQuota(plan.getPriceAmount());
+        // 行锁用户防并发扣费 lost update
+        User user = lockUser(sub.getUserId());
+        long currentQuota = user.getQuota() == null ? 0 : user.getQuota();
+        if (requiredQuota > 0 && currentQuota < requiredQuota) {
+            // 余额不足，不续期
+            return false;
+        }
+        long now = now();
+        // 扣费
+        if (requiredQuota > 0) {
+            int affected = userMapper.decreaseQuota(sub.getUserId(), requiredQuota);
+            if (affected == 0) {
+                // 并发场景扣费失败（余额已被其他请求消耗），不续期
+                return false;
+            }
+        }
+        // 延长 endTime（在当前 endTime 基础上追加一个周期）
+        long newEndTime = calcPlanEndTime(sub.getEndTime(), plan);
+        LambdaUpdateWrapper<UserSubscription> uw = new LambdaUpdateWrapper<>();
+        uw.eq(UserSubscription::getId, sub.getId())
+                .set(UserSubscription::getEndTime, newEndTime)
+                .set(UserSubscription::getUpdatedAt, now);
+        userSubscriptionMapper.update(null, uw);
+        sub.setEndTime(newEndTime);
+        sub.setUpdatedAt(now);
+        // 写入续期订单
+        SubscriptionOrder order = new SubscriptionOrder();
+        order.setUserId(sub.getUserId());
+        order.setPlanId(plan.getId());
+        order.setMoney(plan.getPriceAmount() == null ? 0D : plan.getPriceAmount());
+        order.setTradeNo(String.format("SUBAUTO%d%s%d", sub.getUserId(), RandomUtil.randomLettersAndNumbers(8), now));
+        order.setPaymentMethod("balance");
+        order.setPaymentProvider("balance");
+        order.setStatus(CommonConstants.TOP_UP_STATUS_SUCCESS);
+        order.setCreateTime(now);
+        order.setCompleteTime(now);
+        order.setProviderPayload("auto_renew,sub_id=" + sub.getId());
+        orderMapper.insert(order);
+        // 记录充值日志（扣费流水）
+        recordTopupLog(sub.getUserId(),
+                I18nUtils.get("subscription.auto_renew_log", plan.getTitle(), String.valueOf(plan.getPriceAmount())));
+        return true;
+    }
+
+    /**
+     * 标记订阅过期并执行分组回退（由定时任务调用）
+     * <p>
+     * 用于自动续期失败（余额不足/套餐下架/auto_renew=false）的到期订阅。
+     * 将 status 置为 expired，执行分组回退（downgradeUserGroupIfNeeded）。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void expireSubscriptionGracefully(UserSubscription sub) {
+        if (sub == null) {
+            return;
+        }
+        long now = now();
+        LambdaUpdateWrapper<UserSubscription> uw = new LambdaUpdateWrapper<>();
+        uw.eq(UserSubscription::getId, sub.getId())
+                .eq(UserSubscription::getStatus, "active")
+                .set(UserSubscription::getStatus, "expired")
+                .set(UserSubscription::getUpdatedAt, now);
+        userSubscriptionMapper.update(null, uw);
+        sub.setStatus("expired");
+        sub.setUpdatedAt(now);
+        // 分组回退
+        downgradeUserGroupIfNeeded(sub, now);
+    }
+
+    /**
+     * 用户关闭当前活跃订阅的自动续期
+     * <p>
+     * 将用户所有活跃订阅 auto_renew 置为 false，不改 status（保持 active）、不改 endTime、不分组回退。
+     * 用户可继续使用订阅到 endTime，到期后由自动续期引擎判定 auto_renew=false → 标记 expired + 分组回退。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public List<UserSubscription> cancelSelfSubscription(int userId) {
+        if (userId <= 0) {
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
+        }
+        long now = now();
+        List<UserSubscription> activeSubs = listActiveUserSubscriptions(userId);
+        if (activeSubs.isEmpty()) {
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.no_active_subscription")));
+        }
+        for (UserSubscription sub : activeSubs) {
+            LambdaUpdateWrapper<UserSubscription> uw = new LambdaUpdateWrapper<>();
+            uw.eq(UserSubscription::getId, sub.getId())
+                    .set(UserSubscription::getAutoRenew, false)
+                    .set(UserSubscription::getUpdatedAt, now);
+            userSubscriptionMapper.update(null, uw);
+            sub.setAutoRenew(false);
+            sub.setUpdatedAt(now);
+        }
+        return activeSubs;
+    }
+
+    /**
+     * 用户重新开启当前活跃订阅的自动续期
+     * <p>
+     * 将用户所有活跃订阅 auto_renew 置为 true，允许用户关闭后又想续期时恢复。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public List<UserSubscription> enableSelfAutoRenew(int userId) {
+        if (userId <= 0) {
+            throw new ResultException(R.errorPrompt(I18nUtils.get("common.invalid_params")));
+        }
+        long now = now();
+        List<UserSubscription> activeSubs = listActiveUserSubscriptions(userId);
+        if (activeSubs.isEmpty()) {
+            throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.no_active_subscription")));
+        }
+        for (UserSubscription sub : activeSubs) {
+            LambdaUpdateWrapper<UserSubscription> uw = new LambdaUpdateWrapper<>();
+            uw.eq(UserSubscription::getId, sub.getId())
+                    .set(UserSubscription::getAutoRenew, true)
+                    .set(UserSubscription::getUpdatedAt, now);
+            userSubscriptionMapper.update(null, uw);
+            sub.setAutoRenew(true);
+            sub.setUpdatedAt(now);
+        }
+        return activeSubs;
+    }
+
     // ======================== 内部辅助 ========================
 
     private SubscriptionPlan lockPlan(int planId) {
@@ -627,6 +845,84 @@ public class SubscriptionPlanService {
             }
         }
         User user = lockUser(userId);
+
+        // 单订阅模型：判定购买类型（新购/续期/升级）
+        List<UserSubscription> activeSubs = listActiveUserSubscriptions(userId);
+
+        if (!activeSubs.isEmpty()) {
+            UserSubscription currentSub = activeSubs.get(0);
+            if (currentSub.getPlanId().equals(plan.getId())) {
+                // 续期：延长 endTime（在当前 endTime 基础上追加一个周期），额度字段不变
+                long newEndTime = calcPlanEndTime(currentSub.getEndTime(), plan);
+                LambdaUpdateWrapper<UserSubscription> uw = new LambdaUpdateWrapper<>();
+                uw.eq(UserSubscription::getId, currentSub.getId())
+                        .set(UserSubscription::getEndTime, newEndTime)
+                        .set(UserSubscription::getUpdatedAt, now());
+                userSubscriptionMapper.update(null, uw);
+                currentSub.setEndTime(newEndTime);
+                currentSub.setUpdatedAt(now());
+                return currentSub;
+            }
+
+            // 升级：取消所有旧活跃订阅，保留 amount_used + endTime 创建新订阅
+            int newSortOrder = plan.getSortOrder() == null ? 0 : plan.getSortOrder();
+            SubscriptionPlan currentPlan = getPlanById(currentSub.getPlanId());
+            int currentSortOrder = currentPlan.getSortOrder() == null ? 0 : currentPlan.getSortOrder();
+            if (newSortOrder <= currentSortOrder) {
+                // 安全兜底：前置校验应已拦截，并发场景下到达此处直接拒绝
+                throw new ResultException(R.errorPrompt(I18nUtils.get("subscription.cancel_current_first")));
+            }
+
+            // 保存旧订阅的关键信息
+            long preservedStartTime = currentSub.getStartTime();
+            long preservedEndTime = currentSub.getEndTime();
+            long preservedAmountUsed = currentSub.getAmountUsed() == null ? 0L : currentSub.getAmountUsed();
+            Long preservedLastResetTime = currentSub.getLastResetTime();
+            Long preservedNextResetTime = currentSub.getNextResetTime();
+
+            // 取消所有旧活跃订阅
+            for (UserSubscription old : activeSubs) {
+                LambdaUpdateWrapper<UserSubscription> uw = new LambdaUpdateWrapper<>();
+                uw.eq(UserSubscription::getId, old.getId())
+                        .set(UserSubscription::getStatus, "cancelled")
+                        .set(UserSubscription::getEndTime, now())
+                        .set(UserSubscription::getAutoRenew, false)
+                        .set(UserSubscription::getUpdatedAt, now());
+                userSubscriptionMapper.update(null, uw);
+            }
+
+            // 创建新订阅，保留旧的 amount_used + 时间范围
+            String upgradeGroup = plan.getUpgradeGroup() == null ? "" : plan.getUpgradeGroup().trim();
+            String prevGroup = "";
+            if (!upgradeGroup.isEmpty()) {
+                String currentGroup = user.getGroup() == null ? "" : user.getGroup().trim();
+                if (!upgradeGroup.equals(currentGroup)) {
+                    prevGroup = currentGroup;
+                    user.setGroup(upgradeGroup);
+                    userMapper.updateById(user);
+                }
+            }
+            UserSubscription sub = new UserSubscription();
+            sub.setUserId(userId);
+            sub.setPlanId(plan.getId());
+            sub.setAmountTotal(plan.getTotalAmount() == null ? 0L : plan.getTotalAmount());
+            sub.setAmountUsed(preservedAmountUsed);
+            sub.setStartTime(preservedStartTime);
+            sub.setEndTime(preservedEndTime);
+            sub.setStatus("active");
+            sub.setAutoRenew(true);
+            sub.setSource(source);
+            sub.setLastResetTime(preservedLastResetTime != null ? preservedLastResetTime : 0L);
+            sub.setNextResetTime(preservedNextResetTime != null ? preservedNextResetTime : 0L);
+            sub.setUpgradeGroup(upgradeGroup);
+            sub.setPrevUserGroup(prevGroup);
+            sub.setCreatedAt(now());
+            sub.setUpdatedAt(now());
+            userSubscriptionMapper.insert(sub);
+            return sub;
+        }
+
+        // 新购：创建新订阅
         long startUnix = now();
         long endUnix = calcPlanEndTime(startUnix, plan);
         long nextReset = calcNextResetTime(startUnix, plan, endUnix);
@@ -649,6 +945,7 @@ public class SubscriptionPlanService {
         sub.setStartTime(startUnix);
         sub.setEndTime(endUnix);
         sub.setStatus("active");
+        sub.setAutoRenew(true);
         sub.setSource(source);
         sub.setLastResetTime(lastReset);
         sub.setNextResetTime(nextReset);

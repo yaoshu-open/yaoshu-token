@@ -450,8 +450,22 @@
         "status": {
           "active": "生效中",
           "expired": "已过期",
-          "cancelled": "已取消"
-        }
+          "cancelled": "已取消",
+          "autoRenewOn": "自动续期中",
+          "autoRenewOff": "已关闭续期"
+        },
+        "currentPlan": "当前订阅",
+        "upgrade": "升级套餐",
+        "cannotDowngrade": "不可降级",
+        "cancelSubscription": "关闭自动续期",
+        "cancelConfirmTitle": "关闭自动续期",
+        "cancelConfirmMsg": "关闭后到期不再自动续费，当前周期仍可继续使用。",
+        "cancelSuccess": "已关闭自动续期",
+        "enableAutoRenew": "重新开启续期",
+        "enableAutoRenewConfirmTitle": "开启自动续期",
+        "enableAutoRenewConfirmMsg": "开启后到期将自动从余额扣费续期，确保订阅持续生效。",
+        "enableAutoRenewSuccess": "已开启自动续期",
+        "autoRenewHint": "到期后不再续费，当前周期仍可使用"
       },
       "purchase": {
         "title": "购买订阅套餐",
@@ -479,7 +493,12 @@
         "payLinkError": "获取支付链接失败",
         "subscribeSuccess": "订阅成功",
         "purchaseLimitReachedTitle": "已达购买上限",
-        "purchaseLimitDesc": "此套餐最多购买 {limit} 次，您已购买 {count} 次。"
+        "purchaseLimitDesc": "此套餐最多购买 {limit} 次，您已购买 {count} 次。",
+        "upgradeTitle": "升级套餐确认",
+        "upgradeConfirmTitle": "升级确认",
+        "upgradeConfirmMsg": "确认使用 {quota} 配额升级到此套餐？旧订阅将自动取消。",
+        "upgradeSuccess": "升级成功",
+        "upgradeBtn": "确认升级"
       }
     }
   },
@@ -1347,9 +1366,9 @@
       "override": "覆盖",
       "rawInput": "原生输入",
       "nativeQuota": "原生配额",
-      "amount": "金额 ($)",
+      "amount": "金额",
       "quotaRaw": "配额 (原生)",
-      "preview": "预览 ($)",
+      "preview": "预览",
       "adjusted": "配额已调整",
       "failed": "操作失败"
     },
@@ -2156,7 +2175,9 @@
       "addPending": "编辑抽屉将在第二批迁移中实现",
       "test": "测试",
       "testAll": "测试全部",
-      "testAllSuccess": "已发起全量测试",
+      "testSelected": "测试选中({count})",
+      "testAllSuccess": "全量测试完成",
+      "testAllResult": "全量测试完成（{completed}/{total} 个渠道已测试）",
       "testSuccess": "测试完成",
       "edit": "编辑",
       "editPending": "编辑抽屉将在第二批迁移中实现",
@@ -2607,6 +2628,7 @@
         "searchPlaceholder": "过滤模型...",
         "selectedCount": "已选择 {count} 个模型",
         "batchTest": "批量测试",
+        "testAll": "测试全部",
         "modelColumn": "模型",
         "statusColumn": "状态",
         "notTested": "未测试",
@@ -2633,6 +2655,25 @@
         "showDetails": "查看详情",
         "summarySuccess": "{count} 成功",
         "summaryFailed": "{count} 失败"
+      },
+      "batchTest": {
+        "title": "全量测试结果",
+        "completed": "完成",
+        "successCount": "成功",
+        "failedCount": "失败",
+        "statusChangedCount": "状态变更",
+        "colChannelName": "渠道",
+        "colTestModel": "测试模型",
+        "colStatus": "状态",
+        "colResponseTime": "响应耗时",
+        "colStatusChanged": "状态变更",
+        "colError": "失败原因",
+        "success": "成功",
+        "failed": "失败",
+        "changed": "已变更",
+        "testing": "正在测试全部渠道，请稍候...",
+        "loadFailed": "测试请求失败，请稍后重试",
+        "hint": "仅展示实际被测渠道（手动禁用渠道不参与测试）。状态变更表示测试后渠道被自动禁用或自动恢复。"
       },
       "balance": {
         "title": "查询余额",

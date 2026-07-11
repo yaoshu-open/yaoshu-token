@@ -2,12 +2,16 @@
 /**
  * 用户额度调整对话框。
  * 含 T-US-01 额度原生输入切换（金额 ↔ 原生额度）。
+ *
+ * 金额模式：用户输入的是显示货币金额（CNY/USD/CUSTOM），提交时换算为 raw quota。
+ * 原生模式：用户直接输入 raw quota 值。
  */
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElDialog, ElForm, ElFormItem, ElInputNumber, ElRadioGroup, ElRadioButton, ElButton, ElMessage, ElSwitch } from 'element-plus'
 import { manageUserQuota } from '@/api/user'
 import { useSystemConfig } from '@/composables/useSystemConfig'
+import { formatCurrencyFromUSD, getCurrencyLabel } from '@/utils/currency'
 import type { User } from '@/api/user/types'
 
 const { t } = useI18n()
@@ -25,24 +29,37 @@ const emit = defineEmits<{
 
 const submitting = ref(false)
 const action = ref<'add' | 'subtract' | 'override'>('add')
-const quotaAmount = ref(0)
+
+// 金额模式：用户输入的是显示货币金额（如 CNY 金额）
+const displayAmount = ref(0)
 
 // T-US-01 额度原生输入切换
 const useRawQuota = ref(false)
 const rawQuota = ref(0)
 
-// quotaPerUnit 从系统货币配置获取（与全项目 currency.ts / TokenMutateDrawer 一致）
+// 货币配置
 const quotaPerUnit = computed(() => currency.value.quotaPerUnit)
+/** 显示货币 → USD 的汇率（CNY 模式下 usdExchangeRate=7，USD 模式下=1） */
+const exchangeRateToUSD = computed(() => {
+  const type = currency.value.quotaDisplayType
+  switch (type) {
+    case 'CNY': return currency.value.usdExchangeRate
+    case 'CUSTOM': return currency.value.customCurrencyExchangeRate
+    case 'USD':
+    default: return 1
+  }
+})
+
+/** 当前货币标签（如 CNY/USD） */
+const currencyLabel = computed(() => getCurrencyLabel())
 
 const displayQuota = computed({
-  get: () => useRawQuota.value ? rawQuota.value : quotaAmount.value,
+  get: () => useRawQuota.value ? rawQuota.value : displayAmount.value,
   set: (val: number) => {
     if (useRawQuota.value) {
       rawQuota.value = val
-      quotaAmount.value = Math.floor(val / quotaPerUnit.value)
     } else {
-      quotaAmount.value = val
-      rawQuota.value = val * quotaPerUnit.value
+      displayAmount.value = val
     }
   },
 })
@@ -52,28 +69,54 @@ watch(
   (val) => {
     if (val) {
       action.value = 'add'
-      quotaAmount.value = 0
+      displayAmount.value = 0
       rawQuota.value = 0
       useRawQuota.value = false
     }
   }
 )
 
+/** 预览：显示用户输入对应的显示货币金额 */
+const previewDisplay = computed(() => {
+  if (useRawQuota.value) {
+    // 原生模式：raw quota → USD → 显示货币
+    return formatCurrencyFromUSD(rawQuota.value / quotaPerUnit.value)
+  } else {
+    // 金额模式：用户输入的就是显示货币金额，直接显示
+    const type = currency.value.quotaDisplayType
+    if (type === 'TOKENS') {
+      return formatCurrencyFromUSD(displayAmount.value / quotaPerUnit.value)
+    }
+    // CNY/USD/CUSTOM：输入的就是该货币金额
+    const symbol = type === 'CNY' ? '¥' : type === 'CUSTOM' ? currency.value.customCurrencySymbol : '$'
+    return `${symbol}${displayAmount.value}`
+  }
+})
+
 async function handleSubmit(): Promise<void> {
   if (!props.user) return
   submitting.value = true
   try {
-    const quota = useRawQuota.value ? rawQuota.value : quotaAmount.value * quotaPerUnit.value
+    // 计算提交的 raw quota 值
+    let quota: number
+    if (useRawQuota.value) {
+      quota = rawQuota.value
+    } else {
+      // 金额模式：先把显示货币金额换算为 USD，再乘以 quotaPerUnit
+      const amountUSD = displayAmount.value / exchangeRateToUSD.value
+      quota = Math.floor(amountUSD * quotaPerUnit.value)
+    }
     await manageUserQuota({
-      userId: props.user.id,
-      quota,
-      action: action.value,
+      id: props.user.id,
+      action: 'add_quota',
+      value: quota,
+      mode: action.value,
     })
     ElMessage.success(t('user.quota.adjusted'))
     emit('success')
     emit('update:visible', false)
   } catch {
-    ElMessage.error(t('user.quota.failed'))
+    // 错误由请求拦截器统一提示
   } finally {
     submitting.value = false
   }
@@ -126,13 +169,16 @@ async function handleSubmit(): Promise<void> {
           :min="0"
           style="width: 100%"
         />
+        <span
+          v-if="!useRawQuota"
+          style="margin-left: 8px; font-size: var(--ys-font-size-xs); color: var(--el-text-color-secondary); white-space: nowrap"
+        >
+          ({{ currencyLabel }})
+        </span>
       </el-form-item>
-      <el-form-item
-        v-if="useRawQuota"
-        :label="t('user.quota.preview')"
-      >
+      <el-form-item :label="t('user.quota.preview')">
         <span style="font-size: var(--ys-font-size-sm); color: var(--el-text-color-secondary)">
-          ≈ ${{ (rawQuota / quotaPerUnit).toFixed(2) }}
+          ≈ {{ previewDisplay }}
         </span>
       </el-form-item>
     </el-form>
