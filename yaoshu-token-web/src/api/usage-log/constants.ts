@@ -40,8 +40,3 @@ const FALLBACK_MAPPING = { labelKey: 'usageLogs.types.unknown', variant: 'info' 
 export function getLogTypeMapping(type: number) {
   return LOG_TYPE_MAPPINGS[type] ?? FALLBACK_MAPPING
 }
-
-/** 计费显示模式 */
-export type BillingDisplayMode = 'quota' | 'usd'
-
-export const BILLING_DISPLAY_STORAGE_KEY = 'usage_logs_billing_display'

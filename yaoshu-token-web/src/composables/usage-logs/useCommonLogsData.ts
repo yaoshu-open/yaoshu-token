@@ -1,11 +1,11 @@
 /**
  * 调用日志数据管理 composable。
  *
- * 职责：分页/筛选/三态/紧凑模式/统计/计费显示模式/详情对话框状态。
+ * 职责：分页/筛选/三态/紧凑模式/统计/详情对话框状态。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { getAllLogs, getUserLogs, getLogStats, getUserLogStats } from '@/api/usage-log'
-import { DEFAULT_PAGE_SIZE, BILLING_DISPLAY_STORAGE_KEY, type BillingDisplayMode } from '@/api/usage-log/constants'
+import { DEFAULT_PAGE_SIZE } from '@/api/usage-log/constants'
 import type { GetLogsParams, LogStatistics, UsageLog } from '@/api/usage-log/types'
 import { useTableCompactMode } from '@/composables/useTableCompactMode'
 import { useUserPermissions } from '@/composables/useUserPermissions'
@@ -54,20 +54,6 @@ function getDefaultDateRange(): [Date, Date] {
   return [sevenDaysAgo, now]
 }
 
-function readBillingMode(): BillingDisplayMode {
-  // 金额体系统一：固定走货币显示（formatQuotaWithCurrency），不再支持裸配额数模式
-  // 保留 localStorage 读取仅为兼容旧版本写入，但忽略其值统一返回 'usd'
-  return 'usd'
-}
-
-function writeBillingMode(v: BillingDisplayMode) {
-  try {
-    localStorage.setItem(BILLING_DISPLAY_STORAGE_KEY, v)
-  } catch {
-    /* privacy mode */
-  }
-}
-
 export function useCommonLogsData() {
   const { isAdmin } = useUserPermissions()
 
@@ -81,12 +67,6 @@ export function useCommonLogsData() {
   const statsLoading = ref(false)
 
   const [isCompact, setCompact] = useTableCompactMode('usageLogsCommon')
-
-  const billingDisplayMode = ref<BillingDisplayMode>(readBillingMode())
-  function setBillingDisplayMode(v: BillingDisplayMode) {
-    billingDisplayMode.value = v
-    writeBillingMode(v)
-  }
 
   const detailsDialog = reactive<{ visible: boolean; log: UsageLog | null }>({
     visible: false,
@@ -189,7 +169,6 @@ export function useCommonLogsData() {
     stats, statsLoading,
     isAdmin,
     isCompact, toggleCompact,
-    billingDisplayMode, setBillingDisplayMode,
     detailsDialog, openDetailsDialog,
     fetchLogs, fetchStats,
     handleSearch, handleResetFilters,

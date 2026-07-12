@@ -9,6 +9,7 @@ import ai.yue.library.base.exception.ResultException;
 import ai.yue.library.base.util.I18nUtils;
 import ai.yue.library.base.view.R;
 import ai.yue.library.base.view.Result;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletRequest;
@@ -135,6 +136,17 @@ public class ChannelManagementService {
     private static final ReentrantLock FIX_ABILITY_LOCK = new ReentrantLock();
     private static final Map<Integer, ReentrantLock> CHANNEL_POLLING_LOCKS = new ConcurrentHashMap<>();
     private final AtomicBoolean batchChannelTestRunning = new AtomicBoolean(false);
+
+    /**
+     * 启动时初始化渠道内存缓存
+     * <p>
+     * OptionService @PostConstruct 先于本方法执行（Spring 按依赖顺序初始化），
+     * 此时 MemoryCacheEnabled 已从 options 表加载到 CommonConstants。
+     */
+    @PostConstruct
+    public void initCache() {
+        refreshChannelCache();
+    }
 
     private final ChannelMapper channelMapper;
     private final AbilityMapper abilityMapper;
@@ -616,11 +628,8 @@ public class ChannelManagementService {
             try {
                 double balance = updateChannelBalance(channel);
                 if (balance <= 0D && isAutoBanEnabled(channel)) {
-                    Channel update = new Channel();
-                    update.setId(channel.getId());
-                    update.setStatus(CommonConstants.CHANNEL_STATUS_AUTO_DISABLED);
-                    channelMapper.updateById(update);
-                    channel.setStatus(CommonConstants.CHANNEL_STATUS_AUTO_DISABLED);
+                    // 通过 updateChannelStatus 禁用，同步关闭 abilities.enabled
+                    updateChannelStatus(channel, CommonConstants.CHANNEL_STATUS_AUTO_DISABLED);
                     cacheChanged = true;
                 }
             } catch (RuntimeException e) {
@@ -638,6 +647,7 @@ public class ChannelManagementService {
         }
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> applyUpstreamModelUpdates(ChannelIPO.UpstreamUpdates ipo) {
         Integer channelId = ipo.getId();
         if (channelId == null || channelId <= 0) {
@@ -729,6 +739,7 @@ public class ChannelManagementService {
         return data;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> detectUpstreamModelUpdates(Integer channelId) {
         if (channelId == null || channelId <= 0) {
             throw new IllegalArgumentException("invalid channel id");
@@ -2521,6 +2532,24 @@ public class ChannelManagementService {
             }
         }
         return models;
+    }
+
+    /**
+     * 更新渠道并在同一事务内按需重建 abilities（原子操作）。
+     * <p>
+     * channels 表更新与 abilities 表重建必须在同一事务中原子完成，
+     * 避免出现 channels.models 已更新但 abilities 表无对应记录的数据不一致。
+     *
+     * @param channel 已填充更新字段的渠道对象
+     * @param abilitiesChanged models/group/status 是否变更（true 时重建 abilities）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateChannelWithAbilities(Channel channel, boolean abilitiesChanged) {
+        channelMapper.updateById(channel);
+        if (abilitiesChanged) {
+            recreateChannelAbilities(channel);
+        }
+        refreshChannelCache();
     }
 
     /**

@@ -4,13 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { View, Hide } from '@element-plus/icons-vue'
 import { formatQuotaBilling } from '@/utils/currency'
 import type { LogStatistics } from '@/api/usage-log/types'
-import type { BillingDisplayMode } from '@/api/usage-log/constants'
 
 interface CommonLogsStatsProps {
   stats: LogStatistics
   loading?: boolean
   sensitiveVisible: boolean
-  billingDisplayMode: BillingDisplayMode
 }
 
 const props = defineProps<CommonLogsStatsProps>()
@@ -19,11 +17,7 @@ const { t } = useI18n()
 
 const quotaText = computed(() => {
   if (!props.sensitiveVisible) return '••••'
-  // 金额体系统一：固定走定价货币（强制货币符号）
-  if (props.billingDisplayMode === 'usd') {
-    return formatQuotaBilling(props.stats.quota)
-  }
-  return new Intl.NumberFormat().format(props.stats.quota)
+  return formatQuotaBilling(props.stats.quota)
 })
 
 const rpmText = computed(() => new Intl.NumberFormat().format(props.stats.rpm))

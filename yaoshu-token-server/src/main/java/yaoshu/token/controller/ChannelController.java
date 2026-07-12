@@ -50,6 +50,23 @@ public class ChannelController {
         return R.success(PageInfo.of(channels));
     }
 
+    /**
+     * 模型可用性诊断：检查指定模型在指定分组下的真实分发状态。
+     * <p>
+     * 返回 abilities 表匹配记录、渠道状态、排除原因，
+     * 帮助运营理解"模型测试通过但 API 调用返回 503"的根因。
+     */
+    @GetMapping("/model-routing/diagnose")
+    public Result<?> diagnoseModelRouting(
+            @RequestParam String model,
+            @RequestParam(defaultValue = "default") String group) {
+        if (model == null || model.isBlank()) {
+            throw new ResultException(R.errorPrompt("model 参数不能为空"));
+        }
+        Map<String, Object> diagnosis = channelService.diagnoseModelAvailability(model.trim(), group.trim());
+        return R.success(diagnosis);
+    }
+
     @GetMapping("/search")
     public Result<?> search(
             @RequestParam(required = false) String keyword,
@@ -278,10 +295,7 @@ public class ChannelController {
                 || !java.util.Objects.equals(oldGroup, channel.getGroup())
                 || !java.util.Objects.equals(oldStatus, channel.getStatus());
 
-        channelService.update(channel);
-        if (abilitiesChanged) {
-            channelManagementService.recreateChannelAbilitiesPublic(channel);
-        }
+        channelManagementService.updateChannelWithAbilities(channel, abilitiesChanged);
         // UpdateChannel 写库后清空 proxyClients 缓存
         proxyClientCacheService.reset();
         return R.success(channel);

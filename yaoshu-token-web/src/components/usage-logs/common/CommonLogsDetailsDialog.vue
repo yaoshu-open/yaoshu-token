@@ -4,12 +4,10 @@ import { useI18n } from 'vue-i18n'
 import { formatQuotaBilling, formatBillingCurrencyFromUSD } from '@/utils/currency'
 import { getLogTypeMapping } from '@/api/usage-log/constants'
 import type { UsageLog, LogOtherData } from '@/api/usage-log/types'
-import type { BillingDisplayMode } from '@/api/usage-log/constants'
 
 interface CommonLogsDetailsDialogProps {
   open: boolean
   log: UsageLog | null
-  billingDisplayMode: BillingDisplayMode
 }
 
 const props = defineProps<CommonLogsDetailsDialogProps>()
@@ -40,10 +38,7 @@ const isStream = computed(() => {
 
 const quotaText = computed(() => {
   if (!props.log) return '-'
-  if (props.billingDisplayMode === 'usd') {
-    return formatQuotaBilling(props.log.quota)
-  }
-  return new Intl.NumberFormat().format(props.log.quota)
+  return formatQuotaBilling(props.log.quota)
 })
 
 function formatTime(ts: number): string {

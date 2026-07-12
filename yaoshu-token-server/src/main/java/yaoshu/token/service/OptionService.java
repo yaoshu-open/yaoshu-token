@@ -14,6 +14,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static yaoshu.token.service.ChannelAffinityService.ChannelAffinitySetting;
+import static yaoshu.token.service.ChannelAffinityService.ChannelAffinityRule;
+import static yaoshu.token.service.ChannelAffinityService.ChannelAffinityKeySource;
+
 /**
  * 系统配置服务  */
 @Slf4j
@@ -250,6 +254,9 @@ public class OptionService {
 
                 // 同步 SMTP 配置
                 syncSmtpSettings();
+
+                // 同步渠道亲和性配置
+                syncChannelAffinitySetting();
             }
         } catch (Exception e) {
             log.warn("从数据库加载配置失败（可能数据表尚未初始化）: {}", e.getMessage());
@@ -295,6 +302,10 @@ public class OptionService {
             if (systemName != null && !systemName.isEmpty()) {
                 yaoshu.token.constant.CommonConstants.systemName = systemName;
             }
+            // 同步 MemoryCacheEnabled（ChannelCacheService 内存缓存开关，默认开启）
+            String memoryCacheStr = map.get("MemoryCacheEnabled");
+            yaoshu.token.constant.CommonConstants.memoryCacheEnabled =
+                    memoryCacheStr == null || memoryCacheStr.isEmpty() || "true".equalsIgnoreCase(memoryCacheStr);
         } catch (Exception e) {
             log.warn("同步 CommonConstants 失败: {}", e.getMessage());
         }
@@ -321,7 +332,59 @@ public class OptionService {
     }
 
     /**
-     * 获取所有配置      */
+     * 从 OptionMap 同步渠道亲和性配置到 ChannelAffinityService。
+     * <p>
+     * 如果 options 表中有 ChannelAffinitySetting JSON 配置则使用之；
+     * 否则使用默认规则：按 token_id + 模型名 + 分组名 做亲和，TTL 3600秒。
+     * <p>
+     * 渠道亲和性确保同一用户的同一模型请求稳定命中同一渠道，
+     * 避免随机命中不同上游导致间歇性错误。
+     */
+    private void syncChannelAffinitySetting() {
+        try {
+            Map<String, String> map = yaoshu.token.constant.CommonConstants.optionMap;
+            String json = map.get("ChannelAffinitySetting");
+
+            ChannelAffinityService.ChannelAffinitySetting setting;
+            if (json != null && !json.isBlank()) {
+                setting = ai.yue.library.base.convert.Convert.toJavaBean(json,
+                        ChannelAffinityService.ChannelAffinitySetting.class);
+            } else {
+                // 默认规则：按 token_id 亲和，确保同一 Token 的请求稳定命中同一渠道
+                setting = new ChannelAffinityService.ChannelAffinitySetting();
+                setting.setEnabled(true);
+                setting.setDefaultTTLSeconds(3600);
+                setting.setKeepOnChannelDisabled(false);
+
+                ChannelAffinityService.ChannelAffinityRule rule =
+                        new ChannelAffinityService.ChannelAffinityRule();
+                rule.setName("default_token_affinity");
+                rule.setModelRegex(List.of(".*"));
+                rule.setPathRegex(List.of("/v1/.*"));
+                rule.setIncludeModelName(true);
+                rule.setIncludeUsingGroup(true);
+                rule.setTtlSeconds(3600);
+
+                ChannelAffinityService.ChannelAffinityKeySource keySource =
+                        new ChannelAffinityService.ChannelAffinityKeySource();
+                keySource.setType("context_int");
+                keySource.setKey("token_id");
+                rule.setKeySources(List.of(keySource));
+
+                setting.setRules(List.of(rule));
+            }
+
+            ChannelAffinityService.setGlobalSetting(setting);
+            log.info("渠道亲和性配置已加载: enabled={}, rules={}",
+                    setting.isEnabled(), setting.getRules() != null ? setting.getRules().size() : 0);
+        } catch (Exception e) {
+            log.warn("同步渠道亲和性配置失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 获取所有配置
+     */
     public List<Option> getAll() {
         return optionMapper.selectList(null);
     }
@@ -401,14 +464,19 @@ public class OptionService {
             syncPasskeySetting();
         }
 
-        // 同步 CommonConstants（RetryTimes/SystemName 等）
-        if ("RetryTimes".equals(key) || "SystemName".equals(key)) {
+        // 同步 CommonConstants（RetryTimes/SystemName/MemoryCacheEnabled 等）
+        if ("RetryTimes".equals(key) || "SystemName".equals(key) || "MemoryCacheEnabled".equals(key)) {
             syncCommonConstants();
         }
 
         // 同步 SMTP 配置
         if (key != null && key.startsWith("SMTP")) {
             syncSmtpSettings();
+        }
+
+        // 同步渠道亲和性配置
+        if ("ChannelAffinitySetting".equals(key)) {
+            syncChannelAffinitySetting();
         }
     }
 

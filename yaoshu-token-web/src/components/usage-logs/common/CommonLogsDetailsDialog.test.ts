@@ -78,7 +78,7 @@ function makeLog(other: Record<string, unknown>): UsageLog {
 function mountDialog(log: UsageLog | null) {
   // stub ElDialog 避免 teleport/lazy 渲染问题，使内容直接渲染在 wrapper 内
   return mount(CommonLogsDetailsDialog, {
-    props: { open: true, log, billingDisplayMode: 'usd' },
+    props: { open: true, log },
     global: {
       plugins: [i18n, createPinia()],
       stubs: {

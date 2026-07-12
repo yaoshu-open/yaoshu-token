@@ -195,9 +195,13 @@ public class DistributorFilter implements Filter {    private final ChannelServi
         // 8. 执行后续链
         chain.doFilter(request, response);
 
-        // 9. 请求成功后记录渠道亲和性
-        if (channel != null && response.getStatus() < 400) {
-            ChannelAffinityService.recordChannelAffinity(request, channel.getId());
+        // 9. 请求成功后记录渠道亲和性（优先使用重试后的最终渠道 ID）
+        if (response.getStatus() < 400) {
+            Integer finalChannelId = (Integer) request.getAttribute(ContextKeyConstants.CHANNEL_ID);
+            int recordId = finalChannelId != null ? finalChannelId : (channel != null ? channel.getId() : 0);
+            if (recordId > 0) {
+                ChannelAffinityService.recordChannelAffinity(request, recordId);
+            }
         }
     }
 

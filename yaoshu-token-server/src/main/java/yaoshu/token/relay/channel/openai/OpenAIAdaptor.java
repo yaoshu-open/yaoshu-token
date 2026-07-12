@@ -243,16 +243,9 @@ public class OpenAIAdaptor implements IAdaptor {    /** 渠道类型（用于模
                 info.setUpstreamModelName(baseModel);
             }
 
-            // o 系列模型：system → developer（o1-mini/o1-preview 除外）
-            if (!upstreamModel.startsWith("o1-mini") && !upstreamModel.startsWith("o1-preview")) {
-                List<GeneralOpenAIRequest.Message> messages = openAIRequest.getMessages();
-                if (messages != null && !messages.isEmpty()) {
-                    GeneralOpenAIRequest.Message firstMsg = messages.get(0);
-                    if ("system".equals(firstMsg.getRole())) {
-                        firstMsg.setRole("developer");
-                    }
-                }
-            }
+            // system → developer 转换已移除：developer role 仅 OpenAI 官方 API 支持，
+            // 第三方聚合器普遍不兼容（返回 400 unknown variant `developer`）。
+            // system role 被所有 OpenAI 兼容 API 通用支持（含官方 o-series/GPT-5 向后兼容）。
         }
 
         return openAIRequest;

@@ -16,7 +16,6 @@ const {
   stats, statsLoading,
   isAdmin,
   isCompact,
-  billingDisplayMode,
   detailsDialog, openDetailsDialog,
   handleSearch, handleResetFilters,
   handlePageChange, handlePageSizeChange,
@@ -38,7 +37,6 @@ function updateFilters(partial: Partial<CommonLogsFilters>) {
           :stats="stats"
           :loading="statsLoading"
           :sensitive-visible="sensitiveVisible"
-          :billing-display-mode="billingDisplayMode"
           @toggle-sensitive="sensitiveVisible = !sensitiveVisible"
         />
       </div>
@@ -73,7 +71,6 @@ function updateFilters(partial: Partial<CommonLogsFilters>) {
         :loading="loading"
         :is-compact="isCompact"
         :is-admin="isAdmin"
-        :billing-display-mode="billingDisplayMode"
         :sensitive-visible="sensitiveVisible"
         @view-details="openDetailsDialog"
       />
@@ -95,7 +92,6 @@ function updateFilters(partial: Partial<CommonLogsFilters>) {
     <CommonLogsDetailsDialog
       v-model:open="detailsDialog.visible"
       :log="detailsDialog.log"
-      :billing-display-mode="billingDisplayMode"
     />
   </div>
 </template>

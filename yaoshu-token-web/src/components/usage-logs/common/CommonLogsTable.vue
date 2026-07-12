@@ -5,7 +5,7 @@ import { ElTable, ElTableColumn, ElTag } from 'element-plus'
 import StatusBadge from '@/components/StatusBadge.vue'
 import LongText from '@/components/LongText.vue'
 import { formatQuotaBilling } from '@/utils/currency'
-import { getLogTypeMapping, LOG_TYPE_ENUM, type BillingDisplayMode } from '@/api/usage-log/constants'
+import { getLogTypeMapping, LOG_TYPE_ENUM } from '@/api/usage-log/constants'
 import type { UsageLog } from '@/api/usage-log/types'
 
 type StatusVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'primary'
@@ -19,7 +19,6 @@ interface CommonLogsTableProps {
   loading?: boolean
   isCompact?: boolean
   isAdmin?: boolean
-  billingDisplayMode: BillingDisplayMode
   sensitiveVisible: boolean
 }
 
@@ -36,11 +35,7 @@ function formatTime(ts: number): string {
 
 function quotaText(log: UsageLog): string {
   if (!props.sensitiveVisible) return '••••'
-  // 金额体系统一：固定走定价货币（formatQuotaBilling 强制货币符号，TOKENS 模式回落 USD）
-  if (props.billingDisplayMode === 'usd') {
-    return formatQuotaBilling(log.quota)
-  }
-  return new Intl.NumberFormat().format(log.quota)
+  return formatQuotaBilling(log.quota)
 }
 
 function useTimeText(log: UsageLog): string {

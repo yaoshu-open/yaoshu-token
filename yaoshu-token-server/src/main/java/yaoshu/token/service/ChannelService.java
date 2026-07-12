@@ -14,6 +14,7 @@ import yaoshu.token.pojo.entity.Channel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -339,6 +340,99 @@ public class ChannelService {
                 result.add(channel);
             }
         }
+        return result;
+    }
+
+    /**
+     * 模型可用性诊断：检查指定模型在指定分组下的渠道配置状态。
+     * <p>
+     * 返回该模型在分组中的所有 ability 记录、对应渠道状态、排除原因，
+     * 帮助运营理解"为什么模型测试通过但 API 调用返回 503"。
+     *
+     * @param model 模型名
+     * @param group 分组名
+     * @return 诊断信息 Map
+     */
+    public Map<String, Object> diagnoseModelAvailability(String model, String group) {
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("model", model);
+        result.put("group", group);
+
+        // 1. 查询 abilities 表中所有匹配记录（含 enabled=false）
+        List<yaoshu.token.pojo.entity.Ability> allAbilities = abilityMapper.selectList(
+                new LambdaQueryWrapper<yaoshu.token.pojo.entity.Ability>()
+                        .eq(yaoshu.token.pojo.entity.Ability::getModel, model)
+                        .eq(yaoshu.token.pojo.entity.Ability::getGroup, group));
+        result.put("totalAbilities", allAbilities.size());
+
+        if (allAbilities.isEmpty()) {
+            result.put("available", false);
+            result.put("reason", "abilities 表中无此 model+group 的记录——模型未添加到渠道或未配置到此分组");
+            result.put("suggestion", "请在渠道管理中将此模型添加到渠道的 models 字段，并确保渠道的 group 包含目标分组");
+            return result;
+        }
+
+        // 2. 分类：enabled vs disabled
+        List<yaoshu.token.pojo.entity.Ability> enabledAbilities = allAbilities.stream()
+                .filter(a -> a.getEnabled() != null && a.getEnabled())
+                .collect(Collectors.toList());
+        List<yaoshu.token.pojo.entity.Ability> disabledAbilities = allAbilities.stream()
+                .filter(a -> a.getEnabled() == null || !a.getEnabled())
+                .collect(Collectors.toList());
+
+        result.put("enabledCount", enabledAbilities.size());
+        result.put("disabledCount", disabledAbilities.size());
+
+        // 3. 检查每个 enabled ability 对应的渠道状态
+        List<Map<String, Object>> channels = new java.util.ArrayList<>();
+        int availableCount = 0;
+        for (yaoshu.token.pojo.entity.Ability ability : enabledAbilities) {
+            Map<String, Object> chInfo = new java.util.LinkedHashMap<>();
+            chInfo.put("channelId", ability.getChannelId());
+            chInfo.put("priority", ability.getPriority());
+            chInfo.put("weight", ability.getWeight());
+
+            Channel channel = channelMapper.selectById(ability.getChannelId());
+            if (channel == null) {
+                chInfo.put("channelName", "(已删除)");
+                chInfo.put("status", "DELETED");
+                chInfo.put("excluded", true);
+                chInfo.put("excludeReason", "渠道已从数据库中删除");
+            } else {
+                chInfo.put("channelName", channel.getName());
+                Integer status = channel.getStatus();
+                chInfo.put("status", status);
+                if (status == null || status == 1) {
+                    chInfo.put("excluded", false);
+                    availableCount++;
+                } else {
+                    chInfo.put("excluded", true);
+                    String reason = switch (status) {
+                        case 2 -> "渠道被手动禁用 (MANUALLY_DISABLED)";
+                        case 3 -> "渠道被自动禁用 (AUTO_DISABLED，可能因连续失败/余额耗尽)";
+                        default -> "未知状态: " + status;
+                    };
+                    chInfo.put("excludeReason", reason);
+                }
+            }
+            channels.add(chInfo);
+        }
+
+        // 4. 添加 disabled abilities 的信息
+        for (yaoshu.token.pojo.entity.Ability ability : disabledAbilities) {
+            Map<String, Object> chInfo = new java.util.LinkedHashMap<>();
+            chInfo.put("channelId", ability.getChannelId());
+            chInfo.put("excluded", true);
+            chInfo.put("excludeReason", "ability.enabled=false（渠道禁用时 abilities 同步关闭）");
+            channels.add(chInfo);
+        }
+
+        result.put("channels", channels);
+        result.put("available", availableCount > 0);
+        if (availableCount == 0) {
+            result.put("reason", "所有候选渠道均被排除（禁用/删除/abilities 关闭），无可用渠道");
+        }
+
         return result;
     }
 }

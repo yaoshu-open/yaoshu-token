@@ -5,13 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import yaoshu.token.config.GeneralSettingConfig;
 import yaoshu.token.constant.CommonConstants;
-import yaoshu.token.constant.ModelRatioConstants;
 import yaoshu.token.mapper.TokenMapper;
 import yaoshu.token.mapper.UserMapper;
 import yaoshu.token.pojo.entity.Token;
 import yaoshu.token.pojo.entity.User;
 import yaoshu.token.pojo.vo.DashboardVO.SubscriptionResponse;
 import yaoshu.token.pojo.vo.DashboardVO.UsageResponse;
+
+import java.util.Map;
 
 /**
  * Dashboard Billing 服务  */
@@ -105,14 +106,18 @@ public class DashboardService {
     }
 
     /**
-     * 根据额度展示类型将配额转换为展示金额      */
+     * 根据额度展示类型将配额转换为展示金额
+     * <p>
+     * 汇率从 options 表 USDExchangeRate 读取（与 /api/status 返回值一致），
+     * 不再硬编码 ModelRatioConstants.USD2RMB，避免后端两处汇率不一致。
+     */
     private double computeDisplayAmount(long quota) {
         double amount = (double) quota;
         String displayType = GeneralSettingConfig.getQuotaDisplayType();
 
         switch (displayType) {
             case GeneralSettingConfig.QUOTA_DISPLAY_CNY:
-                amount = amount / CommonConstants.quotaPerUnit * ModelRatioConstants.USD2RMB;
+                amount = amount / CommonConstants.quotaPerUnit * getUsdExchangeRate();
                 break;
             case GeneralSettingConfig.QUOTA_DISPLAY_TOKENS:
                 // tokens 保持原值
@@ -122,5 +127,24 @@ public class DashboardService {
                 break;
         }
         return amount;
+    }
+
+    /**
+     * 从 optionMap 读取 USDExchangeRate（运行时管理员可配置，默认 7.0）
+     */
+    private double getUsdExchangeRate() {
+        try {
+            Map<String, String> optionMap = CommonConstants.optionMap;
+            if (optionMap != null) {
+                String rateStr = optionMap.get("USDExchangeRate");
+                if (rateStr != null && !rateStr.isEmpty()) {
+                    return Double.parseDouble(rateStr);
+                }
+            }
+            return 7.0;
+        } catch (NumberFormatException e) {
+            log.warn("USDExchangeRate 配置值解析失败，使用默认值 7.0: {}", e.getMessage());
+            return 7.0;
+        }
     }
 }
