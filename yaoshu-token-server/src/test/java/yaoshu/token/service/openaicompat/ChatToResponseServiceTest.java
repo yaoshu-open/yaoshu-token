@@ -20,7 +20,7 @@ class ChatToResponseServiceTest {
     void basicUserMessage() {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
-                .messages(List.of(new Message("user", "hello", null, null, null)))
+                .messages(List.of(new Message("user", "hello", null, null, null, null)))
                 .build();
 
         OpenAIResponsesRequest result = ChatToResponseService.chatCompletionsRequestToResponsesRequest(req);
@@ -37,8 +37,8 @@ class ChatToResponseServiceTest {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
                 .messages(List.of(
-                        new Message("system", "You are helpful", null, null, null),
-                        new Message("user", "hi", null, null, null)
+                        new Message("system", "You are helpful", null, null, null, null),
+                        new Message("user", "hi", null, null, null, null)
                 ))
                 .build();
 
@@ -54,9 +54,9 @@ class ChatToResponseServiceTest {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
                 .messages(List.of(
-                        new Message("system", "Rule 1", null, null, null),
-                        new Message("system", "Rule 2", null, null, null),
-                        new Message("user", "ok", null, null, null)
+                        new Message("system", "Rule 1", null, null, null, null),
+                        new Message("system", "Rule 2", null, null, null, null),
+                        new Message("user", "ok", null, null, null, null)
                 ))
                 .build();
 
@@ -74,7 +74,7 @@ class ChatToResponseServiceTest {
     void rejectNGreaterThanOne() {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
-                .messages(List.of(new Message("user", "hi", null, null, null)))
+                .messages(List.of(new Message("user", "hi", null, null, null, null)))
                 .n(3)
                 .build();
 
@@ -86,7 +86,7 @@ class ChatToResponseServiceTest {
     @DisplayName("空 model 应抛出异常")
     void rejectEmptyModel() {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
-                .messages(List.of(new Message("user", "hi", null, null, null)))
+                .messages(List.of(new Message("user", "hi", null, null, null, null)))
                 .build();
 
         assertThrows(IllegalArgumentException.class,
@@ -107,7 +107,7 @@ class ChatToResponseServiceTest {
     void maxTokensMapping() {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
-                .messages(List.of(new Message("user", "hi", null, null, null)))
+                .messages(List.of(new Message("user", "hi", null, null, null, null)))
                 .maxTokens(100)
                 .build();
 
@@ -121,7 +121,7 @@ class ChatToResponseServiceTest {
     void maxCompletionTokensPriority() {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
-                .messages(List.of(new Message("user", "hi", null, null, null)))
+                .messages(List.of(new Message("user", "hi", null, null, null, null)))
                 .maxTokens(100)
                 .maxCompletionTokens(200)
                 .build();
@@ -138,7 +138,7 @@ class ChatToResponseServiceTest {
     void temperaturePassthrough() {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
-                .messages(List.of(new Message("user", "hi", null, null, null)))
+                .messages(List.of(new Message("user", "hi", null, null, null, null)))
                 .temperature(0.7)
                 .build();
 
@@ -152,7 +152,7 @@ class ChatToResponseServiceTest {
     void topPPassthrough() {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
-                .messages(List.of(new Message("user", "hi", null, null, null)))
+                .messages(List.of(new Message("user", "hi", null, null, null, null)))
                 .topP(0.9)
                 .build();
 
@@ -168,7 +168,7 @@ class ChatToResponseServiceTest {
     void reasoningEffortMapping() {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("o3-mini")
-                .messages(List.of(new Message("user", "hi", null, null, null)))
+                .messages(List.of(new Message("user", "hi", null, null, null, null)))
                 .reasoningEffort("medium")
                 .build();
 
@@ -187,7 +187,7 @@ class ChatToResponseServiceTest {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
                 .messages(List.of(
-                        new Message("user", "", null, null, null)
+                        new Message("user", "", null, null, null, null)
                 ))
                 .build();
 
@@ -205,9 +205,9 @@ class ChatToResponseServiceTest {
         GeneralOpenAIRequest req = GeneralOpenAIRequest.builder()
                 .model("gpt-4o")
                 .messages(List.of(
-                        new Message("system", "System prompt", null, null, null),
-                        new Message("user", "Hello", null, null, null),
-                        new Message("assistant", "Hi there!", null, null, null)
+                        new Message("system", "System prompt", null, null, null, null),
+                        new Message("user", "Hello", null, null, null, null),
+                        new Message("assistant", "Hi there!", null, null, null, null)
                 ))
                 .temperature(0.8)
                 .topP(1.0)

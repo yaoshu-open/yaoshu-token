@@ -131,10 +131,10 @@ const billingRows = computed<BillingRow[]>(() => {
     rows.push({ label: t('usageLogs.details.groupRatioDetail'), value: `${Number(other.groupRatio).toFixed(4)}x` })
   }
 
-  const hasCache = (other.cacheTokens ?? 0) > 0 || (other.cacheCreationTokens ?? 0) > 0
+  const hasCache = (other.cachedTokens ?? 0) > 0 || (other.cacheCreationTokens ?? 0) > 0
   if (!isTiered && hasCache) {
-    if (other.cacheRatio != null && other.cacheRatio !== 1 && baseInputUSD > 0) {
-      rows.push({ label: t('usageLogs.details.cacheRead'), value: formatUSD(baseInputUSD * other.cacheRatio) })
+    if (other.cache_ratio != null && other.cache_ratio !== 1 && baseInputUSD > 0) {
+      rows.push({ label: t('usageLogs.details.cacheRead'), value: formatUSD(baseInputUSD * other.cache_ratio) })
     }
     if (other.cacheCreationRatio != null && other.cacheCreationRatio !== 1 && baseInputUSD > 0) {
       rows.push({ label: t('usageLogs.details.cacheWrite'), value: formatUSD(baseInputUSD * other.cacheCreationRatio) })
@@ -204,8 +204,8 @@ const tokenRows = computed<TokenRow[]>(() => {
   rows.push({ label: t('usageLogs.details.tokenInput'), value: num(prompt) })
   rows.push({ label: t('usageLogs.details.tokenOutput'), value: num(completion) })
 
-  // 缓存读/写（多源：other.usage.promptTokenDetails / other.cacheTokens 兼容）
-  const cachedRead = usage?.promptTokenDetails?.cachedTokens ?? otherData.value?.cacheTokens ?? 0
+  // 缓存读/写（多源：other.usage.promptTokensDetails / other.usage.promptCacheHitTokens / other.cachedTokens 兼容）
+  const cachedRead = usage?.promptTokensDetails?.cachedTokens ?? usage?.promptTokenDetails?.cachedTokens ?? usage?.promptCacheHitTokens ?? otherData.value?.cachedTokens ?? 0
   const cachedWrite = usage?.completionTokenDetails?.reasoningTokens != null
     ? 0
     : (otherData.value?.cacheCreationTokens ?? 0)

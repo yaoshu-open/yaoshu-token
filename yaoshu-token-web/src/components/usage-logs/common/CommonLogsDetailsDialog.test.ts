@@ -140,13 +140,13 @@ describe('CommonLogsDetailsDialog - billingRows', () => {
     expect(combined).not.toContain('按 Token 计费')
   })
 
-  it('缓存维度：cacheRatio≠1 且有 cacheTokens 时显示缓存读取', () => {
+  it('缓存维度：cache_ratio≠1 且有 cachedTokens 时显示缓存读取', () => {
     const wr = mountDialog(
       makeLog({
         modelRatio: 1,
         modelPrice: 0,
-        cacheTokens: 500,
-        cacheRatio: 0.5,
+        cachedTokens: 500,
+        cache_ratio: 0.5,
         cacheCreationTokens: 200,
         cacheCreationRatio: 0.75,
       }),

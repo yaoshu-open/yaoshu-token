@@ -48,7 +48,13 @@ export interface LogUsage {
   reasoning_tokens?: number
   audio_tokens?: number
   image_tokens?: number
+  promptCacheHitTokens?: number
   promptTokenDetails?: {
+    cachedTokens?: number
+    audioTokens?: number
+    imageTokens?: number
+  }
+  promptTokensDetails?: {
     cachedTokens?: number
     audioTokens?: number
     imageTokens?: number
@@ -83,14 +89,14 @@ export interface LogOtherData {
   audioOutput?: number
   textInput?: number
   textOutput?: number
-  cacheTokens?: number
+  cachedTokens?: number
   cacheCreationTokens?: number
   modelRatio?: number
   completionRatio?: number
   modelPrice?: number
   groupRatio?: number
   userGroupRatio?: number
-  cacheRatio?: number
+  cache_ratio?: number
   cacheCreationRatio?: number
   isModelMapped?: boolean
   upstreamModelName?: string

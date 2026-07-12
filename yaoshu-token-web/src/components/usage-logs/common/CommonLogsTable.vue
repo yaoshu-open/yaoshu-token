@@ -75,6 +75,28 @@ function frtText(log: UsageLog): string {
   return frt >= 1000 ? `首字 ${(frt / 1000).toFixed(1)}s` : `首字 ${frt}ms`
 }
 
+// 解析 other JSON 取缓存读 tokens（多源兼容：usage.promptTokensDetails / usage.promptCacheHitTokens / 顶层 cachedTokens）
+function cachedTokens(log: UsageLog): number {
+  if (!log.other) return 0
+  try {
+    const o = JSON.parse(log.other) as {
+      cachedTokens?: number
+      promptCacheHitTokens?: number
+      usage?: {
+        promptTokensDetails?: { cachedTokens?: number }
+        promptTokenDetails?: { cachedTokens?: number }
+        promptCacheHitTokens?: number
+      }
+    }
+    const u = o.usage
+    const v = u?.promptTokensDetails?.cachedTokens ?? u?.promptTokenDetails?.cachedTokens ?? u?.promptCacheHitTokens ?? o.cachedTokens ?? 0
+    const n = Number(v)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
 const tableSize = computed(() => (props.isCompact ? 'small' : 'default'))
 
 function rowClassName({ row }: { row: UsageLog }): string {
@@ -197,7 +219,16 @@ function rowClassName({ row }: { row: UsageLog }): string {
         width="120"
       >
         <template #default="{ row }">
-          <span class="common-logs-table__mono">{{ row.promptTokens || 0 }}</span>
+          <div class="common-logs-table__tokens">
+            <span class="common-logs-table__mono">{{ row.promptTokens || 0 }}</span>
+            <ElTag
+              v-if="cachedTokens(row as UsageLog) > 0"
+              size="small"
+              type="success"
+              effect="light"
+              class="common-logs-table__cache-badge"
+            >缓存 {{ new Intl.NumberFormat().format(cachedTokens(row as UsageLog)) }}</ElTag>
+          </div>
         </template>
       </ElTableColumn>
 
@@ -293,6 +324,18 @@ function rowClassName({ row }: { row: UsageLog }): string {
     font-size: 11px;
     font-variant-numeric: tabular-nums;
     color: var(--el-text-color-secondary);
+  }
+
+  &__tokens {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+  }
+
+  &__cache-badge {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
   }
 
   &__ellipsis {
