@@ -8,6 +8,7 @@ import {
   ElPopconfirm,
 } from 'element-plus'
 import type { SubscriptionPlan } from '@/api/subscription/types'
+import { formatPlanPrice } from '@/utils/currency'
 
 defineProps<{
   plans: SubscriptionPlan[]
@@ -53,7 +54,7 @@ function formatDuration(plan: SubscriptionPlan) {
       align="right"
     >
       <template #default="{ row }">
-        {{ row.priceAmount }} {{ row.currency }}
+        {{ formatPlanPrice(row.priceAmount, row.currency) }}
       </template>
     </ElTableColumn>
     <ElTableColumn

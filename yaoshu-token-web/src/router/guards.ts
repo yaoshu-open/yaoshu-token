@@ -12,23 +12,25 @@ import i18n from '@/plugins/i18n'
 // SetupWizard：setup 检测优先于 token（未初始化系统无用户）
 export function setupRouterGuards(router: Router): void {
   router.beforeEach(async (to, _from, next) => {
-    // setup 检测：最早执行（未初始化系统强制引导至 /setup）
-    const { setupStatus, fetchSetupStatus } = useSetupStatus()
-    await fetchSetupStatus()
-    if (setupStatus.value?.status === false && to.path !== '/setup') {
-      next({ path: '/setup' })
-      return
-    }
-    if (setupStatus.value?.status === true && to.path === '/setup') {
-      next({ path: '/' })
-      return
-    }
-
     const token = getToken()
     // 父子路由 requireAuth 继承判断
     const requireAuth = to.matched.some(
       (record) => record.meta.requireAuth === true
     )
+
+    // setup 检测：仅对受保护路由和 /setup 页本身执行（公开页无需阻塞等待 API）
+    if (requireAuth || to.path === '/setup') {
+      const { setupStatus, fetchSetupStatus } = useSetupStatus()
+      await fetchSetupStatus()
+      if (setupStatus.value?.status === false && to.path !== '/setup') {
+        next({ path: '/setup' })
+        return
+      }
+      if (setupStatus.value?.status === true && to.path === '/setup') {
+        next({ path: '/' })
+        return
+      }
+    }
 
     // 公开路由：已登录访问登录页则跳首页
     if (!requireAuth) {

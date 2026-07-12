@@ -23,7 +23,7 @@ import {
   formatDuration,
   formatResetPeriod,
 } from '@/utils/subscription-format'
-import { formatQuotaWithCurrency } from '@/utils/currency'
+import { formatQuotaWithCurrency, formatPlanPrice } from '@/utils/currency'
 
 interface Props {
   visible: boolean
@@ -297,7 +297,7 @@ async function handleEpayPay(): Promise<void> {
         </ElDescriptionsItem>
         <ElDescriptionsItem :label="t('wallet.subscription.purchase.amountPayable')">
           <span class="subscription-purchase__price">
-            {{ plan.priceAmount }} {{ plan.currency }}
+            {{ formatPlanPrice(plan.priceAmount, plan.currency) }}
           </span>
         </ElDescriptionsItem>
       </ElDescriptions>

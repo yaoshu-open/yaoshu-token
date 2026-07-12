@@ -2523,6 +2523,17 @@ public class ChannelManagementService {
         return models;
     }
 
+    /**
+     * 重建指定渠道的 abilities（public 入口，供 ChannelController.update 调用）。
+     * <p>
+     * 删除该渠道的所有旧 abilities 记录，按当前 models/group/status 重建。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void recreateChannelAbilitiesPublic(Channel channel) {
+        recreateChannelAbilities(channel);
+        refreshChannelCache();
+    }
+
     private void recreateChannelAbilities(Channel channel) {
         abilityMapper.delete(new LambdaQueryWrapper<Ability>()
                 .eq(Ability::getChannelId, channel.getId()));

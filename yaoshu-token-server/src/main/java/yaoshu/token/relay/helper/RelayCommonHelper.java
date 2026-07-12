@@ -35,8 +35,6 @@ public final class RelayCommonHelper {
         if (response == null) return;
         response.setHeader("Content-Type", "text/event-stream");
         response.setHeader("Cache-Control", "no-cache");
-        response.setHeader("Connection", "keep-alive");
-        response.setHeader("Transfer-Encoding", "chunked");
         response.setHeader("X-Accel-Buffering", "no");
     }
 

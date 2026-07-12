@@ -22,5 +22,7 @@ public class TokenCountMeta {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private List<FileMeta> files;
     private int maxTokens;
+    /** 快速估算的 prompt tokens（从 messages 文本粗估，用于流式兜底） */
+    private int estimatedPromptTokens;
     private double imagePriceRatio;
 }

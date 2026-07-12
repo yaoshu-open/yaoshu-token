@@ -27,7 +27,7 @@ export function useModelActions(refreshFn: () => Promise<void> | void) {
     try {
       await updateModel({
         id: model.id,
-        status: model.status !== 1,
+        status: model.status === 1 ? 0 : 1,
       })
       ElMessage.success(model.status === 1 ? t('model.actions.disableSuccess') : t('model.actions.enableSuccess'))
       await refreshFn()
@@ -87,7 +87,7 @@ export function useModelActions(refreshFn: () => Promise<void> | void) {
         ids.map((id) => {
           const model = models.find((m) => m.id === id)
           if (model && (enable ? model.status !== 1 : model.status === 1)) {
-            return updateModel({ id, status: enable })
+            return updateModel({ id, status: enable ? 1 : 0 })
           }
           return Promise.resolve()
         })

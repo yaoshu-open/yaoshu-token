@@ -6,8 +6,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,6 +24,7 @@ import yaoshu.token.pojo.vo.PricingVO;
 import yaoshu.token.service.GroupService;
 import yaoshu.token.service.PricingService;
 import yaoshu.token.service.UserService;
+import yaoshu.token.spi.ModelListFilter;
 
 /**
  * 定价控制器  * <p>
@@ -33,6 +37,8 @@ public class PricingController {
 
     private final PricingService pricingService;
     private final UserService userService;
+    @Autowired(required = false)
+    private ModelListFilter modelListFilter;
 
     /**
      * 获取定价信息      */
@@ -58,6 +64,26 @@ public class PricingController {
         // 步骤2：获取用户可用分组，过滤定价数据
         Map<String, String> usableGroup = GroupService.getUserUsableGroups(userGroup);
         pricing = filterPricingByUsableGroups(pricing, usableGroup);
+
+        // 步骤2b：商业版精选模型白名单过滤（ModelListFilter SPI）
+        if (modelListFilter != null && !pricing.isEmpty()) {
+            List<Map<String, Object>> modelMaps = new ArrayList<>();
+            for (PricingVO p : pricing) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", p.getModelName());
+                modelMaps.add(m);
+            }
+            List<Map<String, Object>> filtered = modelListFilter.filter(modelMaps);
+            if (filtered.size() < modelMaps.size()) {
+                // SPI 过滤掉了部分模型——重建 pricingList
+                Set<String> visibleNames = filtered.stream()
+                        .map(m -> (String) m.get("id"))
+                        .collect(Collectors.toSet());
+                pricing = pricing.stream()
+                        .filter(p -> visibleNames.contains(p.getModelName()))
+                        .collect(Collectors.toList());
+            }
+        }
 
         // 步骤3：剔除不在可用分组中的 groupRatio 条目
         groupRatio.keySet().removeIf(group -> !usableGroup.containsKey(group));

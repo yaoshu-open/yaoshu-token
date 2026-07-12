@@ -396,6 +396,9 @@ public class CompatibleHandler {    private static final Map<String, Pattern> RE
         try {
             if (httpResp.body() instanceof String s) {
                 body = s;
+            } else if (httpResp.body() instanceof InputStream is) {
+                // HttpResponse<InputStream>（BodyHandlers.ofInputStream()）：读取流为字符串
+                body = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
             log.debug("读取响应体失败", e);
@@ -412,7 +415,8 @@ public class CompatibleHandler {    private static final Map<String, Pattern> RE
         if (statusCode >= 500) {
             log.error("Relay upstream 5xx: status={}, body={}", statusCode, body.length() > 200 ? body.substring(0, 200) : body);
         } else {
-            log.debug("Relay upstream error: status={}, body={}", statusCode, body.length() > 200 ? body.substring(0, 200) : body);
+            // 4xx 错误也输出 WARN 日志，便于定位上游拒绝原因（如不支持的字段/参数）
+            log.warn("Relay upstream 4xx: status={}, body={}", statusCode, body.length() > 500 ? body.substring(0, 500) : body);
         }
 
         return newApiErrorWithoutStackTrace(errorMessage, errorType, statusCode, false);

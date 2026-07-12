@@ -25,13 +25,31 @@ export default defineConfig(({ mode }) => {
       }),
       Components({
         resolvers: [
-          ElementPlusResolver(),
+          // importStyle: false — main.ts 已全量导入 element-plus/dist/index.css，
+          // 按需导入样式会触发 Vite 运行时发现新依赖导致页面 reload 闪烁
+          ElementPlusResolver({ importStyle: false }),
           IconsResolver({ prefix: 'i' })
         ],
         dts: 'src/types/components.d.ts'
       }),
       Icons({ autoInstall: true })
     ],
+    optimizeDeps: {
+      // 预声明高频依赖，避免运行时发现新依赖触发 "optimized dependencies changed. reloading"
+      include: [
+        'element-plus',
+        'element-plus/es',
+        '@element-plus/icons-vue',
+        'vue',
+        'vue-router',
+        'pinia',
+        'axios',
+        'dayjs',
+        'lodash',
+        'echarts',
+        'vue-i18n',
+      ]
+    },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url))

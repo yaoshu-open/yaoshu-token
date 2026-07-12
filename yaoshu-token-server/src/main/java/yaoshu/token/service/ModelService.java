@@ -148,6 +148,24 @@ public class ModelService {
     }
 
     /**
+     * Gemini 格式模型列表（/v1beta/models）
+     * <p>
+     * 构建 {@code {name, displayName}} 列表，末尾经过 ModelListFilter 精选白名单过滤。
+     */
+    public List<Map<String, Object>> listAllGeminiModels() {
+        List<PricingVO> pricing = pricingService.getPricing();
+        List<Map<String, Object>> models = new ArrayList<>();
+        for (PricingVO p : pricing) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("id", p.getModelName());
+            entry.put("name", p.getModelName());
+            entry.put("displayName", p.getModelName());
+            models.add(entry);
+        }
+        return modelListFilter.filter(models);
+    }
+
+    /**
      * 按 channelType 聚合的模型清单      * <p>
      * 用于 `/api/models` UserAuth 路径（DashboardListModels）：所有用户看到一致的全局静态映射，
      * 反映"每种 channelType 当前有哪些已注册的模型名"。
@@ -165,10 +183,39 @@ public class ModelService {
             if (channelType == null || model == null) continue;
             aggregator.computeIfAbsent(channelType, k -> new LinkedHashSet<>()).add(model);
         }
-        // 转为有序 List 输出
+
+        // 精选白名单过滤：将所有模型名构建为临时列表交由 ModelListFilter 过滤
+        Set<String> allModels = new LinkedHashSet<>();
+        for (Set<String> set : aggregator.values()) {
+            allModels.addAll(set);
+        }
+        Set<String> whitelist = new LinkedHashSet<>();
+        if (!allModels.isEmpty()) {
+            List<Map<String, Object>> tempModels = new ArrayList<>();
+            for (String name : allModels) {
+                Map<String, Object> entry = new HashMap<>();
+                entry.put("id", name);
+                tempModels.add(entry);
+            }
+            List<Map<String, Object>> filtered = modelListFilter.filter(tempModels);
+            for (Map<String, Object> m : filtered) {
+                Object id = m.get("id");
+                if (id != null) whitelist.add(id.toString());
+            }
+        }
+
+        // 转为有序 List 输出，仅保留白名单中的模型
         Map<Integer, List<String>> result = new LinkedHashMap<>();
         for (Map.Entry<Integer, Set<String>> e : aggregator.entrySet()) {
-            result.put(e.getKey(), new ArrayList<>(e.getValue()));
+            List<String> filteredList = new ArrayList<>();
+            for (String model : e.getValue()) {
+                if (whitelist.contains(model)) {
+                    filteredList.add(model);
+                }
+            }
+            if (!filteredList.isEmpty()) {
+                result.put(e.getKey(), filteredList);
+            }
         }
         return result;
     }

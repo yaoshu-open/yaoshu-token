@@ -14,6 +14,7 @@ import com.alicp.jetcache.anno.CacheType;
 import com.alicp.jetcache.anno.CacheUpdate;
 import com.alicp.jetcache.anno.Cached;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import yaoshu.token.config.EndpointTypeMapping;
@@ -51,6 +52,21 @@ public class PricingService {
     private final VendorMapper vendorMapper;
     private final OptionService optionService;
     private final PricingEnhancer pricingEnhancer;
+
+    /**
+     * 启动预热：触发一次 buildPricingSnapshot，让 SPI 增强器（如 EePricingEnhancer）
+     * 在启动时就将动态定价比率回写到 ModelRatioConfig 等内存 Map，
+     * 避免冷启动后首次请求时 getModelRatioOrNull 返回 null 导致 fail-fast。
+     */
+    @PostConstruct
+    public void warmup() {
+        try {
+            buildPricingSnapshot();
+            log.info("Pricing 预热完成，动态定价比率已回写");
+        } catch (Exception e) {
+            log.warn("Pricing 预热失败: {}", e.getMessage());
+        }
+    }
 
     // ======================== 名称规则常量 ======================== 
     private static final int NAME_RULE_EXACT = 1;

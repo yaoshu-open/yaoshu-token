@@ -69,7 +69,7 @@ public final class OpenAIRelayHandler {    private OpenAIRelayHandler() {
                 OpenAIStreamHelper.handleStreamFormat(info, lastStreamData[0], forceFormat, thinkToContent);
             }
 
-            if (data != null && !data.isEmpty()) {
+            if (data != null && !data.isEmpty() && !"[DONE]".equals(data)) {
                 // 音频模型：保存倒数第二条数据用于提取 usage
                 if (isAudioModel && lastStreamData[0] != null) {
                     secondLastStreamData[0] = lastStreamData[0];

@@ -1,6 +1,9 @@
 package yaoshu.token.pojo.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +20,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class Usage {
     private int promptTokens;
     private int completionTokens;
@@ -52,6 +56,7 @@ public class Usage {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public static class PromptTokensDetails {
         private int cachedTokens;
         /** 缓存创建 tokens（GPT 格式的 cached_creation_tokens） */
@@ -64,6 +69,7 @@ public class Usage {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public static class CompletionTokenDetails {
         private int reasoningTokens;
         private int audioTokens;
@@ -75,6 +81,7 @@ public class Usage {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public static class InputTokensDetails {
         private int textTokens;
         private int audioTokens;

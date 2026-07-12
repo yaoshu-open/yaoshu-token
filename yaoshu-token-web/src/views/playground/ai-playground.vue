@@ -116,19 +116,21 @@ function isChatModelByName(name: string): boolean {
 
 /**
  * 从可用模型列表中选最便宜的对话模型（按 Pricing API 的 modelRatio 升序）。
- * 排除图片/embedding/语音等非对话模型，仅考虑 quotaType=0（按量计费）的文本对话模型。
- * Pricing API 无覆盖或匹配失败时 fallback 到第一个对话模型（名称过滤，避免选中 image 等模型）。
+ * 多维度过滤确保只选文本对话模型：
+ * ① completionRatio > 0（排除图像/embedding 等无输出 token 计费的模型，最可靠）
+ * ② Pricing tags/endpoints 关键词 ③ 模型名关键词（tags 数据可能为 null/不准确）
+ * Pricing API 无覆盖或匹配失败时逐级降级 fallback。
  */
 async function pickCheapestModel(models: { label: string; value: string }[]): Promise<string> {
-  // fallback 时过滤非对话模型，避免选中 image/embed/tts 等模型
-  const chatFallback = models.find((m) => isChatModelByName(m.value))
-  const fallback = chatFallback?.value ?? models[0]?.value ?? ''
-  if (models.length === 0) return fallback
+  if (models.length === 0) return ''
   try {
     const { getPricing } = await import('@/api/pricing')
     const data = await getPricing()
-    if (!data?.pricing?.length) return fallback
-    // 非对话模型标签关键词（tags 或 endpoints 含这些词的排除）
+    if (!data?.pricing?.length) {
+      // Pricing 无数据，fallback 到名称过滤
+      return models.find((m) => isChatModelByName(m.value))?.value ?? models[0]?.value ?? ''
+    }
+    // 非对话模型标签关键词
     const EXCLUDE_TAGS = ['embedding', 'image', 'tts', 'stt', 'rerank', 'moderation']
     const EXCLUDE_ENDPOINTS = ['embeddings', 'image-generation', 'audio', 'rerank']
     function isChatModel(p: { tags?: string; supportedEndpointTypes?: string[] }): boolean {
@@ -137,22 +139,27 @@ async function pickCheapestModel(models: { label: string; value: string }[]): Pr
       const excludeStr = [...EXCLUDE_TAGS, ...EXCLUDE_ENDPOINTS]
       return !excludeStr.some(kw => tags.includes(kw) || endpoints.includes(kw))
     }
-    // 构建 modelName → modelRatio 映射（仅按量计费对话模型）
-    // 双重过滤：Pricing tags/endpoints + 模型名关键词（tags 数据可能为 null/不准确）
+    // 构建 completionRatio 映射（判断对话模型的可靠指标）+ ratioMap
+    const completionRatioMap = new Map<string, number>()
     const ratioMap = new Map<string, number>()
     for (const p of data.pricing) {
+      if (typeof p.completionRatio === 'number') {
+        completionRatioMap.set(p.modelName, p.completionRatio)
+      }
       if (
         p.quotaType === 0 &&
         typeof p.modelRatio === 'number' &&
         p.modelRatio > 0 &&
+        typeof p.completionRatio === 'number' &&
+        p.completionRatio > 0 &&
         isChatModel(p) &&
         isChatModelByName(p.modelName)
       ) {
         ratioMap.set(p.modelName, p.modelRatio)
       }
     }
-    // 在可用模型中找 modelRatio 最低的
-    let best = fallback
+    // 优先：在可用模型中找 ratioMap 最便宜的
+    let best = ''
     let bestRatio = Infinity
     for (const m of models) {
       const ratio = ratioMap.get(m.value)
@@ -161,9 +168,17 @@ async function pickCheapestModel(models: { label: string; value: string }[]): Pr
         best = m.value
       }
     }
-    return best
+    if (best) return best
+    // 降级 1：ratioMap 无匹配，用 completionRatio > 0 过滤可用模型
+    const chatByPricing = models.find((m) => {
+      const cr = completionRatioMap.get(m.value)
+      return cr !== undefined && cr > 0
+    })
+    if (chatByPricing) return chatByPricing.value
+    // 降级 2：名称过滤（Pricing 数据未覆盖的模型）
+    return models.find((m) => isChatModelByName(m.value))?.value ?? models[0]?.value ?? ''
   } catch {
-    return fallback
+    return models.find((m) => isChatModelByName(m.value))?.value ?? models[0]?.value ?? ''
   }
 }
 

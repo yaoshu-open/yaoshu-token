@@ -389,7 +389,7 @@ defineExpose({
               :type="row.syncOfficial === 1 ? 'success' : 'warning'"
               size="small"
             >
-              {{ row.syncOfficial === 1 ? 'Official Sync' : 'No Sync' }}
+              {{ row.syncOfficial === 1 ? t('model.syncStatus.official') : t('model.syncStatus.noSync') }}
             </el-tag>
           </template>
         </el-table-column>
@@ -437,31 +437,31 @@ defineExpose({
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="edit">
-                    Edit
+                    {{ t('common.edit') }}
                   </el-dropdown-item>
                   <el-dropdown-item
                     v-if="row.status !== 1"
                     command="enable"
                   >
-                    Enable
+                    {{ t('common.enable') }}
                   </el-dropdown-item>
                   <el-dropdown-item
                     v-if="row.status === 1"
                     command="disable"
                   >
-                    Disable
+                    {{ t('common.disable') }}
                   </el-dropdown-item>
                   <el-dropdown-item
                     v-if="row.description"
                     command="description"
                   >
-                    Description
+                    {{ t('model.form.description') }}
                   </el-dropdown-item>
                   <el-dropdown-item
                     command="delete"
                     divided
                   >
-                    Delete
+                    {{ t('common.delete') }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>

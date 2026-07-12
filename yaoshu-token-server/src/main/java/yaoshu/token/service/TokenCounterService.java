@@ -298,10 +298,14 @@ public class TokenCounterService {
             int maxCompletion = r.getMaxCompletionTokens() != null ? r.getMaxCompletionTokens() : 0;
             int maxT = r.getMaxTokens() != null ? r.getMaxTokens() : 0;
             meta.setMaxTokens(Math.max(maxCompletion, maxT));
+            // 估算 prompt tokens（从 messages 提取文本粗估）
+            meta.setEstimatedPromptTokens(estimatePromptTokensFromMessages(r.getMessages(), r.getModel()));
         } else if (request instanceof OpenAIResponsesRequest r) {
             meta.setMaxTokens(r.getMaxOutputTokens() != null ? r.getMaxOutputTokens() : 0);
         } else if (request instanceof ClaudeDTO.ClaudeRequest r) {
             meta.setMaxTokens(r.getMaxTokens() != null ? r.getMaxTokens() : 0);
+            // Claude 格式：从 messages 估算
+            meta.setEstimatedPromptTokens(estimatePromptTokensFromClaudeMessages(r.getMessages(), r.getModel()));
         } else if (request instanceof OpenAIImageDTO) {
             // 图像请求 pricing 依赖 ImagePriceRatio，Java 侧 OpenAIImageDTO 当前无 getTokenCountMeta()
             // 返回空 meta（CombineText 留空），由调用方按图像默认计费处理
@@ -313,8 +317,82 @@ public class TokenCounterService {
                 v = m.get("max_completion_tokens");
                 if (v instanceof Number n) meta.setMaxTokens(n.intValue());
             }
+            // 从 Map 中估算 prompt tokens
+            Object messages = m.get("messages");
+            List<?> messageList = messages instanceof List<?> mList ? mList : List.of();
+            Object model = m.get("model");
+            if (model instanceof String modelName && !modelName.isEmpty() && !messageList.isEmpty()) {
+                // 有模型名时用精确计数
+                meta.setEstimatedPromptTokens(countTokenInput(extractTextFromMessages(messageList), modelName));
+            } else if (!messageList.isEmpty()) {
+                // 无模型名时用字符级估算
+                meta.setEstimatedPromptTokens(estimatePromptTokensFromMessageList(messageList));
+            }
         }
         // 其他类型：最佳努力，CombineText 留空避免大内存分配
         return meta;
+    }
+
+    /**
+     * 从 OpenAI messages 列表估算 prompt tokens。
+     * 粗估策略：拼接所有 message content 文本，用字符级估算（≈4字符/token）。
+     */
+    @SuppressWarnings("unchecked")
+    private int estimatePromptTokensFromMessages(List<?> messages, String model) {
+        if (messages == null || messages.isEmpty()) return 0;
+        String text = extractTextFromMessages(messages);
+        if (text.isEmpty()) return 0;
+        if (model != null && !model.isEmpty()) {
+            return countTextToken(text, model);
+        }
+        // 无模型名时用通用估算（≈4字符/token）
+        return text.length() / 4;
+    }
+
+    /**
+     * 从 Claude messages 列表估算 prompt tokens。
+     */
+    private int estimatePromptTokensFromClaudeMessages(Object messages, String model) {
+        if (messages == null) return 0;
+        if (messages instanceof List<?> mList) {
+            return estimatePromptTokensFromMessages(mList, model);
+        }
+        return 0;
+    }
+
+    /**
+     * 从消息列表提取纯文本（兼容 OpenAI 格式的 content 字段）。
+     */
+    @SuppressWarnings("unchecked")
+    private String extractTextFromMessages(List<?> messages) {
+        StringBuilder sb = new StringBuilder();
+        for (Object msg : messages) {
+            if (msg instanceof Map<?, ?> m) {
+                Object content = m.get("content");
+                if (content instanceof String s) {
+                    sb.append(s);
+                } else if (content instanceof List<?> parts) {
+                    for (Object part : parts) {
+                        if (part instanceof Map<?, ?> p && p.get("text") instanceof String t) {
+                            sb.append(t);
+                        }
+                    }
+                }
+                // 角色标识也计入（role:assistant/user 等约消耗几个 token）
+                Object role = m.get("role");
+                if (role instanceof String r) {
+                    sb.append(r);
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 从消息列表估算 prompt tokens（通用版，无模型名）。
+     */
+    private int estimatePromptTokensFromMessageList(List<?> messages) {
+        String text = extractTextFromMessages(messages);
+        return text.isEmpty() ? 0 : text.length() / 4;
     }
 }

@@ -248,6 +248,12 @@ public class ChannelController {
         Channel channel = channelService.getById(id);
         if (channel == null) throw new ResultException(R.errorPrompt("渠道不存在"));
 
+        // 记录 models/group/status 是否变更，用于判断是否需要重建 abilities
+        boolean abilitiesChanged = false;
+        String oldModels = channel.getModels();
+        String oldGroup = channel.getGroup();
+        Integer oldStatus = channel.getStatus();
+
         String name = trimToNull(ipo.getName());
         if (name != null) channel.setName(name);
         Integer type = ipo.getType();
@@ -267,7 +273,15 @@ public class ChannelController {
         Double balance = ipo.getBalance();
         if (balance != null) channel.setBalance(balance);
 
+        // models/group/status 变更 → 重建 abilities（删除旧记录 + 按新配置重建）
+        abilitiesChanged = !java.util.Objects.equals(oldModels, channel.getModels())
+                || !java.util.Objects.equals(oldGroup, channel.getGroup())
+                || !java.util.Objects.equals(oldStatus, channel.getStatus());
+
         channelService.update(channel);
+        if (abilitiesChanged) {
+            channelManagementService.recreateChannelAbilitiesPublic(channel);
+        }
         // UpdateChannel 写库后清空 proxyClients 缓存
         proxyClientCacheService.reset();
         return R.success(channel);

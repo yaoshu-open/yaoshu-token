@@ -24,7 +24,7 @@ import {
   formatTimestamp,
   getRemainingDays,
 } from '@/utils/subscription-format'
-import { formatQuotaWithCurrency } from '@/utils/currency'
+import { formatQuotaWithCurrency, formatPlanPrice } from '@/utils/currency'
 import SubscriptionPurchaseDialog from './SubscriptionPurchaseDialog.vue'
 
 interface Props {
@@ -206,11 +206,9 @@ function isPurchaseLimitReached(plan: SubscriptionPlan): boolean {
   return getPurchaseCount(plan.id) >= plan.maxPurchasePerUser
 }
 
-/** 格式化价格（带货币符号） */
+/** 格式化价格（统一货币符号，复用全局 formatPlanPrice） */
 function formatPrice(plan: SubscriptionPlan): string {
-  if (plan.currency === 'CNY') return `¥${plan.priceAmount}`
-  if (plan.currency === 'USD') return `$${plan.priceAmount}`
-  return `${plan.currency} ${plan.priceAmount}`
+  return formatPlanPrice(plan.priceAmount, plan.currency)
 }
 
 // ---- 数据加载 ----
@@ -221,7 +219,7 @@ async function loadData(): Promise<void> {
       getPublicPlans(),
       getSelfSubscriptionFull(),
     ])
-    plans.value = plansRes || []
+    plans.value = (plansRes || []).filter((p) => p.plan.enabled)
     selfData.value = selfRes || null
     billingPreference.value = selfData.value?.billingPreference || 'subscription_first'
   } catch {

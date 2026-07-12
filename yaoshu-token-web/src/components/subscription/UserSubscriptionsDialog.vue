@@ -19,7 +19,7 @@ import type {
   CreateUserSubscriptionRequest,
 } from '@/api/subscription/types'
 import { formatTimestamp } from '@/utils/subscription-format'
-import { formatQuotaWithCurrency } from '@/utils/currency'
+import { formatQuotaWithCurrency, formatPlanPrice } from '@/utils/currency'
 
 interface Props {
   visible: boolean
@@ -351,7 +351,7 @@ watch(dialogVisible, (v) => {
         <ElOption
           v-for="item in plans"
           :key="item.plan.id"
-          :label="`${item.plan.title}（${item.plan.priceAmount} ${item.plan.currency}）`"
+          :label="`${item.plan.title}（${formatPlanPrice(item.plan.priceAmount, item.plan.currency)}）`"
           :value="item.plan.id"
         />
       </ElSelect>

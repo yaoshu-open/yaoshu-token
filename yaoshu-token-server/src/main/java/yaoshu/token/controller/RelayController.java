@@ -161,19 +161,21 @@ public class RelayController {
     }
 
     /**
-     * Gemini 模型列表（Gemini 格式）      */
+     * Gemini 模型列表（Gemini 格式），经过 ModelListFilter 精选白名单过滤
+     */
     @GetMapping("/v1beta/models")
     public Map<String, Object> listGeminiModels() {
-        List<PricingVO> pricing = pricingService.getPricing();
-        List<Map<String, Object>> geminiModels = new ArrayList<>();
-        for (PricingVO p : pricing) {
+        List<Map<String, Object>> geminiModels = modelService.listAllGeminiModels();
+        // 移除内部过滤用的 "id" 字段，仅保留 Gemini 格式字段
+        List<Map<String, Object>> cleaned = new ArrayList<>();
+        for (Map<String, Object> m : geminiModels) {
             Map<String, Object> gm = new LinkedHashMap<>();
-            gm.put("name", p.getModelName());
-            gm.put("displayName", p.getModelName());
-            geminiModels.add(gm);
+            gm.put("name", m.get("name"));
+            gm.put("displayName", m.get("displayName"));
+            cleaned.add(gm);
         }
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("models", geminiModels);
+        result.put("models", cleaned);
         result.put("nextPageToken", null);
         return result;
     }
@@ -460,8 +462,9 @@ public class RelayController {
         RelayException lastError = null;
 
         // ====== 计费编排 ======
-        // 1. 快速构建计费用 token 元数据（CountToken 关闭时仅提取 maxTokens，不解析消息文本）
+        // 1. 快速构建计费用 token 元数据（含 prompt tokens 估算，用于流式兜底）
         TokenCountMeta pricingMeta = tokenCounterService.fastTokenCountMetaForPricing(info.getRequest());
+        info.setEstimatePromptTokens(pricingMeta.getEstimatedPromptTokens());
         // 2. 构建 PriceData（modelRatio/groupRatio 等比率，modelPriceHelper 内部 setPriceData 到 info）
         PriceHelper.modelPriceHelper(info, 0, pricingMeta.getMaxTokens());
         // 3. 预扣费（免费模型跳过）
@@ -539,6 +542,14 @@ public class RelayController {
             } catch (RelayException e) {
                 lastError = e;
                 info.setLastError(e);
+
+                // 客户端断开（Broken pipe）：非渠道错误，不重试不惩罚渠道
+                if (isClientDisconnect(e)) {
+                    log.warn("客户端断开连接：channel={}, model={}",
+                            info.getChannelId(), info.getOriginModelName());
+                    break;
+                }
+
                 processChannelError(req, info, e);
                 if (relayRequestInterceptor != null) {
                     relayRequestInterceptor.postResponse(info, e);
@@ -547,6 +558,11 @@ public class RelayController {
                     break;
                 }
             }
+        }
+
+        // 客户端断开：跳过性能采样和错误响应写入（响应已不可用），finally 块处理退款
+        if (lastError != null && isClientDisconnect(lastError)) {
+            return;
         }
 
         // 所有重试失败
@@ -996,5 +1012,26 @@ public class RelayController {
     private int toInt(Object value) {
         if (value instanceof Number n) return n.intValue();
         return 0;
+    }
+
+    /**
+     * 检测异常是否由客户端断开连接导致（Broken pipe / Response not usable）。
+     * 客户端断开不是渠道错误，不应惩罚渠道健康分或记录失败性能采样。
+     */
+    private boolean isClientDisconnect(RelayException error) {
+        if (error == null) return false;
+        Throwable current = error;
+        while (current != null) {
+            String msg = current.getMessage();
+            if (msg != null) {
+                String lower = msg.toLowerCase();
+                if (lower.contains("broken pipe") || lower.contains("response not usable")
+                        || lower.contains("clientabort")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

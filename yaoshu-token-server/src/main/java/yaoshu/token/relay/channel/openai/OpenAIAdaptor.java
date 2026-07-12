@@ -497,7 +497,7 @@ public class OpenAIAdaptor implements IAdaptor {    /** 渠道类型（用于模
                         info.getChannelSetting() != null && info.getChannelSetting().isThinkingToContent());
             }
 
-            if (data != null && !data.isEmpty()) {
+            if (data != null && !data.isEmpty() && !"[DONE]".equals(data)) {
                 lastStreamData[0] = data;
                 // Token 累积
                 OpenAIStreamHelper.processTokenData(info.getRelayMode(), data,

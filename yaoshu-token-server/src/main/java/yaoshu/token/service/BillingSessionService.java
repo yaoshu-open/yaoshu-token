@@ -237,11 +237,12 @@ public class BillingSessionService {
                     fundingSettled = true;
                 }
 
-                // 2) 调整令牌额度（delta>0 表示实际消耗多于预扣 → 多扣 token；delta<0 → 退还）
+                // 2) 调整令牌 remain_quota：delta>0 补扣差额，delta<0 退还差额
                 // Playground 不操作令牌额度（临时 Token）
                 if (!relayInfo.isPlayground()) {
                     if (delta > 0) {
-                        tokenMapper.increaseUsedQuota(relayInfo.getTokenId(), delta);
+                        // 实际消耗多于预扣，补扣差额
+                        tokenMapper.decreaseRemainQuota(relayInfo.getTokenId(), delta);
                     } else if (delta < 0) {
                         // 实际消耗少于预扣，退还差额（绝对值）
                         tokenMapper.increaseRemainQuotaSafe(relayInfo.getTokenId(), -delta);

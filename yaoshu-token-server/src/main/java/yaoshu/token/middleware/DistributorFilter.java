@@ -68,7 +68,8 @@ public class DistributorFilter implements Filter {    private final ChannelServi
 
         // 模型列表/详情查询不需要渠道分发
         if ("GET".equalsIgnoreCase(request.getMethod())
-                && ("/v1/models".equals(path) || path.startsWith("/v1/models/"))) {
+                && ("/v1/models".equals(path) || path.startsWith("/v1/models/")
+                    || "/v1beta/models".equals(path) || "/v1beta/openai/models".equals(path))) {
             chain.doFilter(request, response);
             return;
         }

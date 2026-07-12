@@ -271,3 +271,24 @@ export function isCurrencyDisplayEnabled(): boolean {
   const { meta } = getCurrencyDisplay()
   return meta.kind !== 'tokens'
 }
+
+const PLAN_CURRENCY_SYMBOLS: Record<string, string> = {
+  CNY: '¥',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  JPY: '¥',
+}
+
+/**
+ * 套餐价格统一格式化（基于套餐自身 currency 字段，非全局货币体系）。
+ * 用于订阅套餐的价格展示，确保卡片/购买弹窗/管理端表格等各处格式一致。
+ */
+export function formatPlanPrice(
+  amount: number | null | undefined,
+  currency: string
+): string {
+  if (amount == null || Number.isNaN(amount)) return '-'
+  const symbol = PLAN_CURRENCY_SYMBOLS[currency] || currency
+  return `${symbol}${amount}`
+}
