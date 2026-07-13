@@ -382,3 +382,29 @@ export interface AddChannelRequest {
   batchAddSetKeyPrefix2Name?: boolean
   channel: Partial<Channel>
 }
+
+// ============================================================================
+// 模型可用性诊断类型
+// ============================================================================
+
+/** 诊断候选渠道信息 */
+export interface DiagnoseChannel {
+  channelId: number
+  channelName: string
+  status: number // 1=启用 2=手动禁用 3=自动禁用
+  priority: number
+  weight: number
+  excluded: boolean
+  excludeReason: string
+}
+
+/** 模型可用性诊断响应 */
+export interface ModelRoutingDiagnoseResponse {
+  model: string
+  group: string
+  totalAbilities: number
+  available: boolean
+  reason?: string
+  suggestion?: string
+  channels?: DiagnoseChannel[]
+}

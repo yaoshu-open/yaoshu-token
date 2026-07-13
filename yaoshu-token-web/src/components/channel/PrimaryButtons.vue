@@ -4,7 +4,7 @@
  *
  * 职责：添加渠道 / 测试全部 / 更新余额 / 修复能力 / 删除禁用。
  */
-import { Plus, Connection, Wallet, Tools, Delete, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, Connection, Wallet, Tools, Delete, ArrowDown, View } from '@element-plus/icons-vue'
 
 defineProps<{
   testAllLoading?: boolean
@@ -18,6 +18,7 @@ defineEmits<{
   (e: 'update-all-balance'): void
   (e: 'fix-abilities'): void
   (e: 'delete-disabled'): void
+  (e: 'diagnose'): void
 }>()
 </script>
 
@@ -58,7 +59,11 @@ defineEmits<{
       </el-button>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item @click="$emit('fix-abilities')">
+          <el-dropdown-item @click="$emit('diagnose')">
+            <el-icon><View /></el-icon>
+            模型可用性诊断
+          </el-dropdown-item>
+          <el-dropdown-item divided @click="$emit('fix-abilities')">
             {{ $t('channel.actions.fixAbilities') }}
           </el-dropdown-item>
           <el-dropdown-item @click="$emit('delete-disabled')">

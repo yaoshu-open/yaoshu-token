@@ -133,7 +133,7 @@ export interface ModelFormData {
   vendorId?: number
   endpoints: string
   nameRule: number
-  status: number
+  status: boolean
   syncOfficial: boolean
 }
 

@@ -23,6 +23,7 @@ import MultiKeyManageDialog from '@/components/channel/dialogs/MultiKeyManageDia
 import UpstreamUpdateDialog from '@/components/channel/dialogs/UpstreamUpdateDialog.vue'
 import CodexUsageDialog from '@/components/channel/dialogs/CodexUsageDialog.vue'
 import OllamaModelsDialog from '@/components/channel/dialogs/OllamaModelsDialog.vue'
+import ModelDiagnoseDialog from '@/components/channel/dialogs/ModelDiagnoseDialog.vue'
 import { useChannelsData } from '@/composables/channel/useChannelsData'
 import { useChannelUpstreamUpdates } from '@/composables/channel/useChannelUpstreamUpdates'
 import { useGlobalPassThrough } from '@/composables/channel/useGlobalPassThrough'
@@ -113,6 +114,9 @@ const codexUsageDialogOpen = ref(false)
 const codexUsageDialogChannel = ref<Channel | null>(null)
 const ollamaDialogOpen = ref(false)
 const ollamaDialogChannel = ref<Channel | null>(null)
+
+// 模型可用性诊断
+const diagnoseDialogOpen = ref(false)
 
 // 上游更新 composable（T-CH-07）
 const upstream = useChannelUpstreamUpdates(() => fetchChannels())
@@ -448,6 +452,7 @@ function onSortChange(payload: { prop: string; order: 'ascending' | 'descending'
       @update-all-balance="handleUpdateAllBalance"
       @fix-abilities="handleFixAbilities"
       @delete-disabled="handleDeleteDisabled"
+      @diagnose="diagnoseDialogOpen = true"
       @batch-delete="handleBatchDelete"
       @batch-set-tag="openEditTag"
       @batch-enable="handleBatchEnable"
@@ -582,6 +587,9 @@ function onSortChange(payload: { prop: string; order: 'ascending' | 'descending'
       :channel="ollamaDialogChannel"
       @success="fetchChannels"
     />
+
+    <!-- 模型可用性诊断对话框 -->
+    <ModelDiagnoseDialog v-model="diagnoseDialogOpen" />
   </div>
 </template>
 

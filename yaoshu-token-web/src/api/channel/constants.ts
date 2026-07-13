@@ -80,7 +80,9 @@ export const CHANNEL_ENDPOINTS = {
   /** 上游更新 - 应用单渠道 */
   UPSTREAM_UPDATE_APPLY: '/api/channel/upstream_updates/apply',
   /** 上游更新 - 批量应用 */
-  UPSTREAM_UPDATE_APPLY_ALL: '/api/channel/upstream_updates/apply_all'
+  UPSTREAM_UPDATE_APPLY_ALL: '/api/channel/upstream_updates/apply_all',
+  /** 模型可用性诊断 */
+  MODEL_ROUTING_DIAGNOSE: '/api/channel/model-routing/diagnose'
 } as const
 
 /** Mock 开关（DEV 环境 + env flag 启用） */

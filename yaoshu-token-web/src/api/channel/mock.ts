@@ -21,6 +21,7 @@ import type {
   GetChannelsParams,
   GetChannelsResponse,
   GroupsResponse,
+  ModelRoutingDiagnoseResponse,
   MultiKeyManageParams,
   MultiKeyStatusResponse,
   SearchChannelsParams,
@@ -489,6 +490,29 @@ export function mockApplyAllUpstreamUpdates(): Promise<UpstreamUpdateBatchRespon
     addedModels: 12,
     removedModels: 3,
     failedChannelIds: []
+  })
+}
+
+export function mockDiagnoseModel(
+  model: string,
+  _group?: string
+): Promise<ModelRoutingDiagnoseResponse> {
+  return Promise.resolve({
+    model,
+    group: _group ?? 'default',
+    totalAbilities: 1,
+    available: true,
+    channels: [
+      {
+        channelId: 1,
+        channelName: 'Mock Channel',
+        status: 1,
+        priority: 0,
+        weight: 0,
+        excluded: false,
+        excludeReason: ''
+      }
+    ]
   })
 }
 

@@ -21,11 +21,13 @@ import type {
   ChannelTestResponse,
   CopyChannelParams,
   CopyChannelResponse,
+  DiagnoseChannel,
   FetchModelsResponse,
   GetChannelResponse,
   GetChannelsParams,
   GetChannelsResponse,
   GroupsResponse,
+  ModelRoutingDiagnoseResponse,
   MultiKeyManageParams,
   MultiKeyStatusResponse,
   SearchChannelsParams,
@@ -569,4 +571,22 @@ export function applyAllUpstreamUpdates(): Promise<UpstreamUpdateBatchResponse> 
   )
 }
 
-export type { ChannelModel, TagOperationParams }
+// ============================================================================
+// 模型可用性诊断
+// ============================================================================
+
+/** 模型可用性诊断 — 检查指定模型在指定分组下的真实分发状态 */
+export function diagnoseModel(
+  model: string,
+  group?: string
+): Promise<ModelRoutingDiagnoseResponse> {
+  if (USE_MOCK) {
+    return import('./mock').then((m) => m.mockDiagnoseModel(model, group))
+  }
+  return request.get<ModelRoutingDiagnoseResponse>(
+    CHANNEL_ENDPOINTS.MODEL_ROUTING_DIAGNOSE,
+    { params: { model, group } }
+  )
+}
+
+export type { ChannelModel, TagOperationParams, DiagnoseChannel, ModelRoutingDiagnoseResponse }

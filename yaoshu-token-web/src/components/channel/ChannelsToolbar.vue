@@ -31,6 +31,7 @@ const emit = defineEmits<{
   (e: 'update-all-balance'): void
   (e: 'fix-abilities'): void
   (e: 'delete-disabled'): void
+  (e: 'diagnose'): void
   (e: 'batch-delete'): void
   (e: 'batch-set-tag'): void
   (e: 'batch-enable'): void
@@ -119,6 +120,7 @@ const group = computed({
           @update-all-balance="$emit('update-all-balance')"
           @fix-abilities="$emit('fix-abilities')"
           @delete-disabled="$emit('delete-disabled')"
+          @diagnose="$emit('diagnose')"
         />
       </div>
     </div>

@@ -54,6 +54,7 @@ import yaoshu.token.relay.common.RequestConversion;
 import yaoshu.token.relay.constant.RelayModeEnum;
 import yaoshu.token.relay.helper.BillingExprHelper;
 import yaoshu.token.relay.helper.ModelMappedHelper;
+import yaoshu.token.spi.ChannelModelSyncHandler;
 import yaoshu.token.service.CodexOAuthService.CodexOAuthAuthorizationFlow;
 import yaoshu.token.service.CodexOAuthService.CodexOAuthTokenResult;
 import yaoshu.token.service.CodexUsageService.CodexUsageResult;
@@ -160,6 +161,7 @@ public class ChannelManagementService {
     private final UserService userService;
     private final ProxyClientCacheService proxyClientCacheService;
     private final PricingService pricingService;
+    private final ChannelModelSyncHandler channelModelSyncHandler;
 
     @Transactional(rollbackFor = Exception.class)
     public long deleteDisabledChannels() {
@@ -2104,6 +2106,8 @@ public class ChannelManagementService {
 
         if (modelsChanged) {
             recreateChannelAbilities(channel);
+            // SPI Hook：渠道模型变更后通知商业版同步渠道成本骨架记录
+            channelModelSyncHandler.onChannelModelsApplied(channel.getId(), splitCommaSeparated(channel.getModels()));
         }
 
         return new ChannelUpstreamApplyResult(

@@ -116,7 +116,7 @@ export function useModelMutateForm() {
 
     submitting.value = true
     try {
-      const apiPayload = modelFormToApi(formData) as unknown as ModelFormData
+      const apiPayload = modelFormToApi(formData) as unknown as Omit<ModelFormData, 'status'> & { status: number }
       if (mode.value === 'create') {
         await createModel(apiPayload)
       } else if (editingId.value != null) {

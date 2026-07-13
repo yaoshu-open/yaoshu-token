@@ -6,12 +6,14 @@ import org.springframework.context.annotation.Configuration;
 import yaoshu.token.relay.DefaultChannelHealthHandler;
 import yaoshu.token.relay.DefaultChannelSelector;
 import yaoshu.token.relay.DefaultRelayRetryStrategy;
+import yaoshu.token.relay.NoOpChannelModelSyncHandler;
 import yaoshu.token.relay.NoOpModelListFilter;
 import yaoshu.token.relay.NoOpPricingEnhancer;
 import yaoshu.token.relay.NoOpRelayRequestInterceptor;
 import yaoshu.token.service.ChannelManagementService;
 import yaoshu.token.service.ChannelService;
 import yaoshu.token.spi.ChannelHealthHandler;
+import yaoshu.token.spi.ChannelModelSyncHandler;
 import yaoshu.token.spi.ChannelSelector;
 import yaoshu.token.spi.ModelListFilter;
 import yaoshu.token.spi.PricingEnhancer;
@@ -63,5 +65,11 @@ public class SpiAutoConfiguration {
     @ConditionalOnMissingBean(PricingEnhancer.class)
     public PricingEnhancer defaultPricingEnhancer() {
         return new NoOpPricingEnhancer();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ChannelModelSyncHandler.class)
+    public ChannelModelSyncHandler defaultChannelModelSyncHandler() {
+        return new NoOpChannelModelSyncHandler();
     }
 }

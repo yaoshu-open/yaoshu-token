@@ -96,7 +96,7 @@ const selectedModels = ref<string[]>([])
 const testingModels = ref<Set<string>>(new Set())
 const isBatchTesting = ref(false)
 const expandedErrorModel = ref<string | null>(null)
-const tableRef = ref<InstanceType<typeof ElTable>>()
+const tableRef = ref<{ clearSelection: () => void }>()
 
 // ============================================================================
 // 计算属性

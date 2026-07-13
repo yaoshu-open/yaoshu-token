@@ -56,7 +56,9 @@ export function getModel(id: number): Promise<Model> {
 }
 
 /** 创建模型 */
-export function createModel(data: ModelFormData): Promise<void> {
+export function createModel(
+  data: Omit<ModelFormData, 'status'> & { status: number }
+): Promise<void> {
   if (USE_MOCK) {
     return import('./mock').then((m) => m.mockCreateModel())
   }
@@ -64,7 +66,9 @@ export function createModel(data: ModelFormData): Promise<void> {
 }
 
 /** 更新模型 */
-export function updateModel(data: Partial<ModelFormData> & { id: number }): Promise<void> {
+export function updateModel(
+  data: Partial<Omit<ModelFormData, 'status'>> & { id: number; status?: number }
+): Promise<void> {
   if (USE_MOCK) {
     return import('./mock').then((m) => m.mockUpdateModel())
   }

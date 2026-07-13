@@ -136,11 +136,11 @@ function getStatusLabel(item: ChannelBatchTestItem): string {
         >
           <template #default="{ row }">
             <ElTag
-              :type="getStatusType(row)"
+              :type="getStatusType(row as ChannelBatchTestItem)"
               size="small"
               effect="light"
             >
-              {{ getStatusLabel(row) }}
+              {{ getStatusLabel(row as ChannelBatchTestItem) }}
             </ElTag>
           </template>
         </ElTableColumn>
